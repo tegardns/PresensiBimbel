@@ -1,0 +1,2 @@
+Tutor components moved to components_tutor.
+Integrate routing in App.tsx.
