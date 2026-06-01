@@ -1,6 +1,7 @@
 // PRIVATE_FIXED/src/app/components/masterdata/DataPresensi.tsx
 import { useEffect, useState } from "react";
 import { Search, Image as ImageIcon } from "lucide-react";
+import api from "../../../services/api";
 
 interface Presensi {
   id: string;
@@ -28,6 +29,7 @@ export function DataPresensi({
 }: DataPresensiProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [presensiData, setPresensiData] = useState<Presensi[]>([]);
+  const [dateFilter, setDateFilter] = useState<string>("");
 
   useEffect(() => {
     fetchPresensi();
@@ -35,48 +37,39 @@ export function DataPresensi({
 
   const fetchPresensi = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/attendances");
-      const data = await res.json();
+      const res = await api.get("/attendances");
+      const data = res.data;
 
       const mapped: Presensi[] = data.map((item: any, index: number) => ({
-        id:
-          item.id ||
-          `SES-${new Date().getFullYear()}${String(index + 1).padStart(
-            3,
-            "0",
-          )}`,
-
+        id: item.id || `SES-${new Date().getFullYear()}${String(index + 1).padStart(3, "0")}`,
         tutorId: item.tutorId || "-",
-        tutorNama: item.tutor || "-",
-
-        siswaId: item.studentId || "-",
-        siswaNama: item.siswa || "-",
-
+        tutorNama: item.tutorNama || "-",
+        siswaId: item.siswaId || "-",
+        siswaNama: item.siswaNama || "-",
         mapelId: item.mapelId || `MAP-${String(index + 1).padStart(3, "0")}`,
-        mapelNama: item.mapel || "-",
-
-        tanggal: item.tanggal,
-        durasi: item.durasi,
-
-        buktiUrl:
-          item.foto || "https://via.placeholder.com/400x300?text=No+Image",
-
-        catatan: item.catatan || "-",
-        feeBersih: item.fee,
+        mapelNama: item.mapelNama || "-",
+        tanggal: item.tanggal || item.createdAt,
+        durasi: Number(item.durasi || item.durationMin || 60),
+        buktiUrl: item.buktiUrl || "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=500&auto=format&fit=crop",
+        catatan: item.catatan || item.notes || "-",
+        feeBersih: Number(item.feeBersih || item.feeNet || 0),
       }));
 
       setPresensiData(mapped);
     } catch (error) {
-      console.log("Gagal ambil data presensi");
+      console.log("Gagal ambil data presensi:", error);
     }
   };
 
   const filteredPresensi = presensiData.filter((presensi) => {
-    return (
+    const matchesSearch =
       presensi.tutorNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       presensi.siswaNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      presensi.mapelNama.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+      presensi.mapelNama.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesDate = !dateFilter || new Date(presensi.tanggal).toISOString().startsWith(dateFilter);
+
+    return matchesSearch && matchesDate;
   });
 
   const formatRupiah = (amount: number) => {
@@ -112,6 +105,8 @@ export function DataPresensi({
 
         <input
           type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
           className="px-4 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -162,7 +157,11 @@ export function DataPresensi({
                   className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-500">{presensi.id}</span>
+                    <span className="text-sm text-gray-500 font-mono font-medium">
+                      {presensi.id.includes("-") && presensi.id.length > 8
+                        ? `SES-${presensi.id.split("-")[0].toUpperCase()}`
+                        : presensi.id}
+                    </span>
                   </td>
 
                   <td className="px-6 py-4">

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Eye, Download } from 'lucide-react';
+import api from '../../../services/api';
 
 interface SessionDetail {
   tanggal: string;
@@ -12,6 +13,7 @@ interface SessionDetail {
 interface PayoutHistory {
   id: string;
   tutorId: string;
+  tutorKode: string;
   tutorNama: string;
   namaBank: string;
   noRekening: string;
@@ -24,84 +26,31 @@ interface PayoutHistory {
   sessions: SessionDetail[];
 }
 
-const mockHistory: PayoutHistory[] = [
-  {
-    id: 'TRX-20260413-W15-M',
-    tutorId: 'TUT-001',
-    tutorNama: 'Mellysa',
-    namaBank: 'BCA',
-    noRekening: '1234567890',
-    jumlahSesi: 10,
-    totalNominal: 480000,
-    status: 'sudah-payout',
-    periodeStart: '2026-04-07',
-    periodeEnd: '2026-04-13',
-    tanggalTransfer: '2026-04-14',
-    sessions: [
-      { tanggal: '2026-04-07', siswa: 'Andi Wijaya', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-08', siswa: 'Budi Santoso', mapel: 'Fisika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-09', siswa: 'Citra Dewi', mapel: 'Kimia', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-10', siswa: 'Dedi Prasetyo', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-11', siswa: 'Eka Putri', mapel: 'Biologi', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-11', siswa: 'Fajar Rahman', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-12', siswa: 'Gita Sari', mapel: 'Fisika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-12', siswa: 'Hadi Gunawan', mapel: 'Kimia', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-13', siswa: 'Indah Permata', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-13', siswa: 'Joko Widodo', mapel: 'Biologi', durasi: 60, fee: 48000 },
-    ],
-  },
-  {
-    id: 'TRX-20260413-W15-B',
-    tutorId: 'TUT-002',
-    tutorNama: 'Budi Santoso',
-    namaBank: 'Mandiri',
-    noRekening: '0987654321',
-    jumlahSesi: 7,
-    totalNominal: 336000,
-    status: 'sudah-payout',
-    periodeStart: '2026-04-07',
-    periodeEnd: '2026-04-13',
-    tanggalTransfer: '2026-04-14',
-    sessions: [
-      { tanggal: '2026-04-07', siswa: 'Karina Putri', mapel: 'Bahasa Inggris', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-08', siswa: 'Leo Pratama', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-09', siswa: 'Maya Sari', mapel: 'Fisika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-10', siswa: 'Nina Amelia', mapel: 'Kimia', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-11', siswa: 'Oscar Rahman', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-12', siswa: 'Putri Dewi', mapel: 'Biologi', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-13', siswa: 'Qori Ananda', mapel: 'Bahasa Inggris', durasi: 60, fee: 48000 },
-    ],
-  },
-  {
-    id: 'TRX-20260406-W14-M',
-    tutorId: 'TUT-001',
-    tutorNama: 'Mellysa',
-    namaBank: 'BCA',
-    noRekening: '1234567890',
-    jumlahSesi: 9,
-    totalNominal: 432000,
-    status: 'sudah-payout',
-    periodeStart: '2026-03-31',
-    periodeEnd: '2026-04-06',
-    tanggalTransfer: '2026-04-07',
-    sessions: [
-      { tanggal: '2026-03-31', siswa: 'Rudi Hartono', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-01', siswa: 'Sinta Maharani', mapel: 'Fisika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-02', siswa: 'Tono Wijaya', mapel: 'Kimia', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-03', siswa: 'Umar Said', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-03', siswa: 'Vina Putri', mapel: 'Biologi', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-04', siswa: 'Wati Sari', mapel: 'Matematika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-05', siswa: 'Xena Putri', mapel: 'Fisika', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-05', siswa: 'Yudi Prasetyo', mapel: 'Kimia', durasi: 60, fee: 48000 },
-      { tanggal: '2026-04-06', siswa: 'Zaki Rahman', mapel: 'Matematika', durasi: 60, fee: 48000 },
-    ],
-  },
-];
+interface RiwayatPembayaranProps {
+  data: PayoutHistory[];
+}
 
-export function RiwayatPembayaran() {
+export function RiwayatPembayaran({ data }: RiwayatPembayaranProps) {
   const [selectedPayout, setSelectedPayout] = useState<PayoutHistory | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState('all');
+  const [tutorsMap, setTutorsMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchTutors = async () => {
+      try {
+        const res = await api.get('/tutors');
+        const map: Record<string, string> = {};
+        res.data.forEach((t: any) => {
+          map[t.id] = t.kode;
+        });
+        setTutorsMap(map);
+      } catch (error) {
+        console.error("Gagal memuat mapping tutor:", error);
+      }
+    };
+    fetchTutors();
+  }, []);
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -120,7 +69,7 @@ export function RiwayatPembayaran() {
     alert(`Generating salary slip for ${payout.tutorNama}\n\nPeriode: ${formatDate(payout.periodeStart)} - ${formatDate(payout.periodeEnd)}\nTotal: ${formatRupiah(payout.totalNominal)}\n\nFungsi cetak PDF akan diimplementasikan.`);
   };
 
-  const filteredHistory = mockHistory.filter(h => {
+  const filteredHistory = data.filter(h => {
     const matchSearch = h.tutorNama.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        h.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchMonth = filterMonth === 'all' || h.periodeStart.startsWith(filterMonth);
@@ -177,7 +126,7 @@ export function RiwayatPembayaran() {
                       </div>
                       <div>
                         <p className="font-medium">{payout.tutorNama}</p>
-                        <p className="text-xs text-gray-500">{payout.tutorId}</p>
+                        <p className="text-xs text-blue-600 font-mono font-medium">{tutorsMap[payout.tutorId] || payout.tutorKode || payout.tutorId}</p>
                       </div>
                     </div>
                   </td>

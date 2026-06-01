@@ -1,4 +1,7 @@
-// PRIVATE_FIXED/bimbel-backend/src/server.ts
+
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
 
@@ -12,7 +15,12 @@ import financeRoutes from "./routes/finance.routes";
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);

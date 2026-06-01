@@ -119,6 +119,22 @@ const dayNames = [
 
 const pieColors = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444"];
 
+const levelPricing = {
+  'Calistung': { harga: 35000, durasi: [75] },
+  'SD': { harga: 50000, durasi: [90, 120] },
+  'SMP': { harga: 60000, durasi: [90, 120, 150, 180] },
+  'SMA': { harga: 70000, durasi: [90, 120, 150, 180] },
+};
+
+interface LevelItem {
+  id: string;
+  code: string;
+  name: string;
+  hargaJual: number;
+  durasiMenit: number;
+  potonganAdmin: number;
+}
+
 function toArray<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
 
@@ -161,6 +177,65 @@ function isSameMonth(dateString: string, targetDate: Date) {
   );
 }
 
+function isSameSelectedMonth(dateString: string, selectedMonthStr: string) {
+  if (!dateString || !selectedMonthStr) return false;
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const monthStr = date.toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+  });
+
+  return monthStr === selectedMonthStr;
+}
+
+function getRepresentativeDate(selectedMonthStr: string, today: Date, attendances: Attendance[]) {
+  const currentMonthStr = today.toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+  });
+  
+  if (selectedMonthStr === currentMonthStr) {
+    return today;
+  }
+  
+  // Find latest attendance in the selected month
+  const monthAttendances = attendances.filter(att => {
+    const dateStr = att.createdAt || att.tanggal || "";
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return false;
+    return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" }) === selectedMonthStr;
+  });
+  
+  if (monthAttendances.length > 0) {
+    const sorted = [...monthAttendances].sort((a, b) => {
+      const dA = new Date(a.createdAt || a.tanggal || "").getTime();
+      const dB = new Date(b.createdAt || b.tanggal || "").getTime();
+      return dB - dA;
+    });
+    return new Date(sorted[0].createdAt || sorted[0].tanggal || "");
+  }
+  
+  const parts = selectedMonthStr.split(" ");
+  if (parts.length === 2) {
+    const monthName = parts[0];
+    const year = parseInt(parts[1]);
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const monthIndex = monthNames.findIndex(m => m.toLowerCase() === monthName.toLowerCase());
+    if (monthIndex !== -1) {
+      return new Date(year, monthIndex, 15);
+    }
+  }
+  
+  return today;
+}
+
 function getStartOfWeek(date: Date) {
   const result = new Date(date);
   result.setHours(0, 0, 0, 0);
@@ -191,6 +266,13 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [allTutors, setAllTutors] = useState<Tutor[]>([]);
+  const [allAttendances, setAllAttendances] = useState<Attendance[]>([]);
+  const [dbLevels, setDbLevels] = useState<LevelItem[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+
   const today = new Date();
 
   const formattedDate = today.toLocaleDateString("id-ID", {
@@ -219,143 +301,50 @@ export function Dashboard() {
         setLoading(true);
         setError("");
 
-        const [studentsRes, tutorsRes, attendancesRes, financeRes] =
+        const [studentsRes, tutorsRes, attendancesRes, levelsRes] =
           await Promise.all([
             api.get("/students"),
             api.get("/tutors"),
             api.get("/attendances"),
-            api.get("/finance"),
+            api.get("/levels"),
           ]);
 
         const students = toArray<Student>(studentsRes.data);
         const tutors = toArray<Tutor>(tutorsRes.data);
         const attendances = toArray<Attendance>(attendancesRes.data);
-        const finances = toArray<Finance>(financeRes.data);
+        const levels = toArray<LevelItem>(levelsRes.data);
 
-        const activeTutors = tutors.filter((tutor) => tutor.status).length;
-        const activeSiswas = students.filter((student) => student.isActive).length;
+        setAllStudents(students);
+        setAllTutors(tutors);
+        setAllAttendances(attendances);
+        setDbLevels(levels);
 
-        const todayPresensis = attendances.filter((attendance) =>
-          isSameDay(getDateValue(attendance), today),
-        ).length;
-
-        const monthRevenue = attendances
-          .filter((attendance) => isSameMonth(getDateValue(attendance), today))
-          .reduce((total, attendance) => {
-            const fee = Number(attendance.feeNet ?? attendance.fee ?? 0);
-            return total + fee;
-          }, 0);
-
-        setStats({
-          todayPresensis,
-          activeTutors,
-          activeSiswas,
-          monthRevenue,
-        });
-
-        const weeklySessions: SessionChartItem[] = dayNames.map((day, index) => {
-          const count = attendances.filter((attendance) => {
-            const dateString = getDateValue(attendance);
-            const date = new Date(dateString);
-
-            if (Number.isNaN(date.getTime())) return false;
-
-            return isCurrentWeek(dateString, today) && date.getDay() === index;
-          }).length;
-
-          return {
-            id: `day-${index}`,
-            day,
-            sesi: count,
-          };
-        });
-
-        setSessionData(weeklySessions);
-
-        const levelCounts = new Map<string, number>();
-
-        students.forEach((student) => {
-          const levelName = student.level?.name || "Tanpa Level";
-          levelCounts.set(levelName, (levelCounts.get(levelName) || 0) + 1);
-        });
-
-        const levelChartData: LevelChartItem[] = Array.from(levelCounts.entries()).map(
-          ([name, value], index) => ({
-            id: `level-${name}`,
-            name,
-            value,
-            color: pieColors[index % pieColors.length],
-          }),
-        );
-
-        setLevelData(levelChartData);
-
-        const subjectCounts = new Map<string, number>();
-
-        attendances.forEach((attendance) => {
-          const subjectName =
-            attendance.subjectName ||
-            attendance.mapel ||
-            "Tanpa Mapel";
-
-          subjectCounts.set(
-            subjectName,
-            (subjectCounts.get(subjectName) || 0) + 1,
-          );
-        });
-
-        const subjectChartData: TopSubjectItem[] = Array.from(
-          subjectCounts.entries(),
-        )
-          .map(([subject, count]) => ({
-            subject,
-            count,
-          }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5);
-
-        setTopSubjects(subjectChartData);
-
-        const tutorStatsMap = new Map<
-          string,
-          {
-            name: string;
-            sessions: number;
-            minutes: number;
+        // Generate list of available months
+        const monthsSet = new Set<string>();
+        monthsSet.add(currentMonth); // Always include current month
+        
+        attendances.forEach((att) => {
+          const dateStr = getDateValue(att);
+          if (dateStr) {
+            const date = new Date(dateStr);
+            if (!Number.isNaN(date.getTime())) {
+              const monthStr = date.toLocaleDateString("id-ID", {
+                month: "long",
+                year: "numeric",
+              });
+              monthsSet.add(monthStr);
+            }
           }
-        >();
-
-        attendances.forEach((attendance) => {
-          const tutorKey = attendance.tutorId || attendance.tutor;
-
-          if (!tutorKey) return;
-
-          const duration = Number(attendance.durationMin ?? attendance.durasi ?? 0);
-
-          const current = tutorStatsMap.get(tutorKey) || {
-            name: attendance.tutor || "Tutor",
-            sessions: 0,
-            minutes: 0,
-          };
-
-          tutorStatsMap.set(tutorKey, {
-            name: current.name,
-            sessions: current.sessions + 1,
-            minutes: current.minutes + duration,
-          });
         });
-
-        const tutorLeaderboard: TopTutorItem[] = Array.from(tutorStatsMap.values())
-          .sort((a, b) => b.sessions - a.sessions)
-          .map((item, index) => ({
-            rank: index + 1,
-            name: item.name,
-            sessions: item.sessions,
-            hours: Math.round(item.minutes / 60),
-          }))
-          .slice(0, 3);
-
-        setTopTutors(tutorLeaderboard);
+        
+        const sortedMonths = Array.from(monthsSet).sort((a, b) => {
+          const dateA = getRepresentativeDate(a, today, []);
+          const dateB = getRepresentativeDate(b, today, []);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
+        setAvailableMonths(sortedMonths);
+        setSelectedMonth(currentMonth);
       } catch (err) {
         console.error(err);
         setError("Gagal mengambil data dashboard dari server.");
@@ -366,6 +355,146 @@ export function Dashboard() {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedMonth || allAttendances.length === 0) return;
+
+    const activeTutors = allTutors.filter((tutor) => tutor.status).length;
+    const activeSiswas = allStudents.filter((student) => student.isActive).length;
+
+    const todayPresensis = allAttendances.filter((attendance) =>
+      isSameDay(getDateValue(attendance), today),
+    ).length;
+
+    const monthRevenue = allAttendances
+      .filter((attendance) => isSameSelectedMonth(getDateValue(attendance), selectedMonth))
+      .reduce((total, attendance) => {
+        const feeNet = Number(attendance.feeBersih ?? 0);
+        const levelName = attendance.level || 'SD';
+        
+        let cleanLevel = 'SD';
+        if (levelName.toUpperCase().includes('CALISTUNG')) cleanLevel = 'Calistung';
+        else if (levelName.toUpperCase().includes('SD')) cleanLevel = 'SD';
+        else if (levelName.toUpperCase().includes('SMP')) cleanLevel = 'SMP';
+        else if (levelName.toUpperCase().includes('SMA')) cleanLevel = 'SMA';
+
+        const dbLevel = dbLevels.find((l) => l.name.toUpperCase() === cleanLevel.toUpperCase());
+        const potongan = dbLevel ? dbLevel.potonganAdmin : (cleanLevel === 'Calistung' ? 20 : 10);
+        
+        const gross = feeNet / ((100 - potongan) / 100);
+        return total + Math.round(gross);
+      }, 0);
+
+    setStats({
+      todayPresensis,
+      activeTutors,
+      activeSiswas,
+      monthRevenue,
+    });
+
+    const repDate = getRepresentativeDate(selectedMonth, today, allAttendances);
+
+    const weeklySessions: SessionChartItem[] = dayNames.map((day, index) => {
+      const count = allAttendances.filter((attendance) => {
+        const dateString = getDateValue(attendance);
+        const date = new Date(dateString);
+
+        if (Number.isNaN(date.getTime())) return false;
+
+        return isCurrentWeek(dateString, repDate) && date.getDay() === index;
+      }).length;
+
+      return {
+        id: `day-${index}`,
+        day,
+        sesi: count,
+      };
+    });
+
+    setSessionData(weeklySessions);
+
+    const levelCounts = new Map<string, number>();
+    allStudents.forEach((student) => {
+      const levelName = student.level?.name || "Tanpa Level";
+      levelCounts.set(levelName, (levelCounts.get(levelName) || 0) + 1);
+    });
+
+    const levelChartData: LevelChartItem[] = Array.from(levelCounts.entries()).map(
+      ([name, value], index) => ({
+        id: `level-${name}`,
+        name,
+        value,
+        color: pieColors[index % pieColors.length],
+      }),
+    );
+
+    setLevelData(levelChartData);
+
+    const subjectCounts = new Map<string, number>();
+    const monthAttendances = allAttendances.filter((att) =>
+      isSameSelectedMonth(getDateValue(att), selectedMonth)
+    );
+
+    monthAttendances.forEach((attendance) => {
+      const subjectName = attendance.mapelNama || "Tanpa Mapel";
+      subjectCounts.set(
+        subjectName,
+        (subjectCounts.get(subjectName) || 0) + 1,
+      );
+    });
+
+    const subjectChartData: TopSubjectItem[] = Array.from(
+      subjectCounts.entries(),
+    )
+      .map(([subject, count]) => ({
+        subject,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    setTopSubjects(subjectChartData);
+
+    const tutorStatsMap = new Map<
+      string,
+      {
+        name: string;
+        sessions: number;
+        minutes: number;
+      }
+    >();
+
+    monthAttendances.forEach((attendance) => {
+      const tutorKey = attendance.tutorId || attendance.tutorNama;
+      if (!tutorKey) return;
+
+      const duration = Number(attendance.durasi ?? 0);
+      const current = tutorStatsMap.get(tutorKey) || {
+        name: attendance.tutorNama || "Tutor",
+        sessions: 0,
+        minutes: 0,
+      };
+
+      tutorStatsMap.set(tutorKey, {
+        name: current.name,
+        sessions: current.sessions + 1,
+        minutes: current.minutes + duration,
+      });
+    });
+
+    const tutorLeaderboard: TopTutorItem[] = Array.from(tutorStatsMap.values())
+      .sort((a, b) => b.sessions - a.sessions)
+      .map((item, index) => ({
+        rank: index + 1,
+        name: item.name,
+        sessions: item.sessions,
+        hours: Math.round(item.minutes / 60),
+      }))
+      .slice(0, 3);
+
+    setTopTutors(tutorLeaderboard);
+
+  }, [selectedMonth, allAttendances, allStudents, allTutors, dbLevels]);
 
   if (loading) {
     return <div className="p-8">Memuat dashboard...</div>;
@@ -380,8 +509,16 @@ export function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <select className="px-4 py-2 border border-gray-200 rounded-lg bg-white">
-            <option>{currentMonth}</option>
+          <select 
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-4 py-2 border border-gray-200 rounded-lg bg-white"
+          >
+            {availableMonths.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
           </select>
         </div>
       </div>

@@ -33,7 +33,7 @@ export function ModalEditLevel({
 
       const payload = {
         hargaJual: Number(formData.get("hargaJual")),
-        durasiMenit: Number(formData.get("durasiMenit")),
+        durasiMenit: level.name === "Calistung" ? 75 : Number(formData.get("durasiMenit")),
         potonganAdmin: Number(formData.get("potonganAdmin")),
       };
 
@@ -120,18 +120,26 @@ export function ModalEditLevel({
             </label>
             <select
               name="durasiMenit"
-              defaultValue={level.durasiMenit}
+              defaultValue={level.name === "Calistung" ? 75 : level.durasiMenit}
               required
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={level.name === "Calistung"}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500"
             >
-              <option value="60">60 menit</option>
-              <option value="90">90 menit</option>
-              <option value="120">120 menit</option>
-              <option value="150">150 menit</option>
-              <option value="180">180 menit</option>
+              {level.name === "Calistung" ? (
+                <option value="75">75 menit</option>
+              ) : (
+                <>
+                  <option value="90">90 menit</option>
+                  <option value="120">120 menit</option>
+                  <option value="150">150 menit</option>
+                  <option value="180">180 menit</option>
+                </>
+              )}
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              Durasi standar untuk satu sesi
+              {level.name === "Calistung" 
+                ? "Durasi untuk level Calistung dikunci pada 75 menit" 
+                : "Durasi standar untuk satu sesi"}
             </p>
           </div>
 

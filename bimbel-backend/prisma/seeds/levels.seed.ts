@@ -3,8 +3,25 @@
 import type { PrismaClient } from "@prisma/client";
 
 export async function seedLevels(prisma: PrismaClient) {
-  const levelSD = await prisma.level.upsert({
+  const levelCalistung = await prisma.level.upsert({
     where: { code: "LVL-1" },
+    update: {
+      name: "Calistung",
+      hargaJual: 35000,
+      durasiMenit: 75,
+      potonganAdmin: 20,
+    },
+    create: {
+      code: "LVL-1",
+      name: "Calistung",
+      hargaJual: 35000,
+      durasiMenit: 75,
+      potonganAdmin: 20,
+    },
+  });
+
+  const levelSD = await prisma.level.upsert({
+    where: { code: "LVL-2" },
     update: {
       name: "SD",
       hargaJual: 50000,
@@ -12,7 +29,7 @@ export async function seedLevels(prisma: PrismaClient) {
       potonganAdmin: 10,
     },
     create: {
-      code: "LVL-1",
+      code: "LVL-2",
       name: "SD",
       hargaJual: 50000,
       durasiMenit: 60,
@@ -21,51 +38,34 @@ export async function seedLevels(prisma: PrismaClient) {
   });
 
   const levelSMP = await prisma.level.upsert({
-    where: { code: "LVL-2" },
-    update: {
-      name: "SMP",
-      hargaJual: 50000,
-      durasiMenit: 60,
-      potonganAdmin: 10,
-    },
-    create: {
-      code: "LVL-2",
-      name: "SMP",
-      hargaJual: 50000,
-      durasiMenit: 60,
-      potonganAdmin: 10,
-    },
-  });
-
-  const levelSMA = await prisma.level.upsert({
     where: { code: "LVL-3" },
     update: {
-      name: "SMA",
+      name: "SMP",
       hargaJual: 60000,
       durasiMenit: 60,
       potonganAdmin: 10,
     },
     create: {
       code: "LVL-3",
-      name: "SMA",
+      name: "SMP",
       hargaJual: 60000,
       durasiMenit: 60,
       potonganAdmin: 10,
     },
   });
 
-  const levelSMK = await prisma.level.upsert({
+  const levelSMA = await prisma.level.upsert({
     where: { code: "LVL-4" },
     update: {
-      name: "SMK",
-      hargaJual: 40000,
+      name: "SMA",
+      hargaJual: 70000,
       durasiMenit: 60,
       potonganAdmin: 10,
     },
     create: {
       code: "LVL-4",
-      name: "SMK",
-      hargaJual: 40000,
+      name: "SMA",
+      hargaJual: 70000,
       durasiMenit: 60,
       potonganAdmin: 10,
     },
@@ -74,9 +74,9 @@ export async function seedLevels(prisma: PrismaClient) {
   console.log("✅ Levels seeded");
 
   return {
+    levelCalistung,
     levelSD,
     levelSMP,
     levelSMA,
-    levelSMK,
   };
 }

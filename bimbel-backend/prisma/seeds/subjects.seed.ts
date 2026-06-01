@@ -6,13 +6,14 @@ type Levels = Awaited<ReturnType<typeof import("./levels.seed").seedLevels>>;
 
 export async function seedSubjects(prisma: PrismaClient, levels: Levels) {
   const subjects = [
+    { code: "CLS-DAS", name: "Calistung Dasar", levelId: levels.levelCalistung.id },
+    { code: "CLS-LAN", name: "Calistung Lanjutan", levelId: levels.levelCalistung.id },
     { code: "MTK-SD", name: "Matematika SD", levelId: levels.levelSD.id },
     { code: "ENG-SD", name: "Bahasa Inggris SD", levelId: levels.levelSD.id },
     { code: "MTK-SMP", name: "Matematika SMP", levelId: levels.levelSMP.id },
     { code: "ENG-SMP", name: "Bahasa Inggris SMP", levelId: levels.levelSMP.id },
     { code: "MTK-SMA", name: "Matematika SMA", levelId: levels.levelSMA.id },
     { code: "ENG-SMA", name: "Bahasa Inggris SMA", levelId: levels.levelSMA.id },
-    { code: "MTK-SMK", name: "Matematika SMK", levelId: levels.levelSMK.id },
   ];
 
   for (const subject of subjects) {

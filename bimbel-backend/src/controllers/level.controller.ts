@@ -9,7 +9,7 @@ export const getLevels = async (req: Request, res: Response) => {
   try {
     const levels = await prisma.level.findMany({
       orderBy: {
-        name: "asc",
+        code: "asc",
       },
       select: {
         id: true,

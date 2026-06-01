@@ -60,7 +60,9 @@ export function DataLevel() {
         };
       });
 
-      setLevels(mapped);
+      // Urutkan kartu berurutan dari Level 1 sampai Level 4
+      const sorted = mapped.sort((a, b) => a.code.localeCompare(b.code));
+      setLevels(sorted);
     } catch (error) {
       console.error("Gagal ambil data level:", error);
       setErrorMessage("Gagal mengambil data level dari server.");

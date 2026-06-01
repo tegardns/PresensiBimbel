@@ -1,10 +1,19 @@
-import { useState } from 'react';
-import { CheckCircle, Clock, Edit2, Send } from 'lucide-react';
-import { payouts, getTutorById } from '../../data/mockData';
+import { useState, useEffect } from 'react';
+import { CheckCircle, Clock, Edit2, Send, Eye } from 'lucide-react';
+import api from '../../../services/api';
+
+interface SessionDetail {
+  tanggal: string;
+  siswa: string;
+  mapel: string;
+  durasi: number;
+  fee: number;
+}
 
 interface PayoutData {
   id: string;
   tutorId: string;
+  tutorKode: string;
   tutorNama: string;
   namaBank: string;
   noRekening: string;
@@ -13,31 +22,133 @@ interface PayoutData {
   status: 'disetujui' | 'diproses' | 'sudah-payout';
   periodeStart: string;
   periodeEnd: string;
+  sessions?: SessionDetail[];
 }
 
-// Transform data dari central mockData
-const mockPayout: PayoutData[] = payouts
-  .filter(p => p.status !== 'sudah-payout')
-  .map(p => {
-    const tutor = getTutorById(p.tutorId);
-    return {
-      id: p.id,
-      tutorId: p.tutorId,
-      tutorNama: tutor?.nama || '',
-      namaBank: tutor?.namaBank || '',
-      noRekening: tutor?.noRek || '',
-      jumlahSesi: p.jumlahSesi,
-      totalNominal: p.totalNominal,
-      status: p.status,
-      periodeStart: p.periodeStart,
-      periodeEnd: p.periodeEnd,
-    };
-  });
+interface PayoutMingguanProps {
+  data: PayoutData[];
+  onPayoutSuccess: () => void;
+}
 
-export function PayoutMingguan() {
-  const [payoutList, setPayoutList] = useState(mockPayout);
+export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
+  const [payoutList, setPayoutList] = useState<PayoutData[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
+  const [selectedPayout, setSelectedPayout] = useState<PayoutData | null>(null);
+  const [tutorsMap, setTutorsMap] = useState<Record<string, string>>({});
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  useEffect(() => {
+    setPayoutList(data);
+  }, [data]);
+
+  useEffect(() => {
+    const fetchTutors = async () => {
+      try {
+        const res = await api.get('/tutors');
+        const map: Record<string, string> = {};
+        res.data.forEach((t: any) => {
+          map[t.id] = t.kode;
+        });
+        setTutorsMap(map);
+      } catch (error) {
+        console.error("Gagal memuat mapping tutor:", error);
+      }
+    };
+    fetchTutors();
+  }, []);
+
+  const getCyclePeriod = (startStr: string, endStr: string) => {
+    if (!startStr) return "-";
+    
+    const startDate = new Date(startStr);
+    const startDay = startDate.getDay();
+    // Monday of start date's week
+    const mondayDiff = startDay === 0 ? -6 : 1 - startDay;
+    const monday = new Date(startDate);
+    monday.setDate(startDate.getDate() + mondayDiff);
+
+    const endDate = endStr ? new Date(endStr) : startDate;
+    const endDay = endDate.getDay();
+    // Saturday of end date's week
+    const saturdayDiff = endDay === 0 ? -1 : 6 - endDay;
+    const saturday = new Date(endDate);
+    saturday.setDate(endDate.getDate() + saturdayDiff);
+
+    return `${formatDate(monday.toISOString().split('T')[0])} - ${formatDate(saturday.toISOString().split('T')[0])}`;
+  };
+
+  const getCurrentCycle = () => {
+    const today = new Date();
+    const day = today.getDay();
+    
+    // Monday of current week
+    const mondayDiff = day === 0 ? -6 : 1 - day;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayDiff);
+    
+    // Saturday of current week
+    const saturdayDiff = day === 0 ? -1 : 6 - day;
+    const saturday = new Date(today);
+    saturday.setDate(today.getDate() + saturdayDiff);
+    
+    return `${formatDate(monday.toISOString().split('T')[0])} - ${formatDate(saturday.toISOString().split('T')[0])}`;
+  };
+
+  const isPayoutOverdue = (payout: PayoutData) => {
+    if (payout.status === 'sudah-payout') return false;
+    
+    const endDateStr = payout.periodeEnd || payout.periodeStart;
+    if (!endDateStr) return false;
+    
+    const endDate = new Date(endDateStr);
+    const endDay = endDate.getDay();
+    // Saturday of end date's week
+    const saturdayDiff = endDay === 0 ? -1 : 6 - endDay;
+    const saturday = new Date(endDate);
+    saturday.setDate(endDate.getDate() + saturdayDiff);
+    
+    // Sunday of that week is Saturday + 1 day
+    const Sunday = new Date(saturday);
+    Sunday.setDate(saturday.getDate() + 1);
+    
+    // Set Sunday time to end of day (23:59:59)
+    Sunday.setHours(23, 59, 59, 999);
+    
+    const today = new Date();
+    return today > Sunday;
+  };
+
+  const handleViewRekap = async (payout: PayoutData) => {
+    try {
+      const res = await api.get("/attendances");
+      const sessions = res.data
+        .filter((item: any) => item.tutorId === payout.tutorId && item.status === "disetujui")
+        .map((item: any) => ({
+          tanggal: item.createdAt || item.tanggal,
+          siswa: item.student?.fullName || item.siswaNama || "-",
+          mapel: item.subjectName || item.mapelNama || "-",
+          durasi: Number(item.durationMin || item.durasi || 60),
+          fee: Number(item.feeNet || item.feeBersih || 0),
+        }));
+
+      setSelectedPayout({
+        ...payout,
+        sessions
+      });
+    } catch (error) {
+      console.error("Gagal memuat rekap sesi:", error);
+      setSelectedPayout({
+        ...payout,
+        sessions: payout.sessions || []
+      });
+    }
+  };
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -56,12 +167,16 @@ export function PayoutMingguan() {
     }
   };
 
-  const handleSudahPayout = (id: string) => {
-    if (confirm('Konfirmasi bahwa transfer sudah dilakukan?\n\nPastikan Anda sudah mentransfer dana ke rekening tutor.')) {
-      setPayoutList(payoutList.map(p =>
-        p.id === id ? { ...p, status: 'sudah-payout' as const } : p
-      ));
-      alert('Status berhasil diubah menjadi "Sudah Payout"');
+  const handleSudahPayout = async (id: string, tutorId: string) => {
+    if (confirm('Konfirmasi bahwa transfer sudah dilakukan secara manual?\n\nPastikan Anda sudah mentransfer dana ke rekening tutor.')) {
+      try {
+        await api.post('/finance/payout', { tutorId });
+        alert('Transfer gaji tutor berhasil dikonfirmasi dan dicatat ke sistem!');
+        onPayoutSuccess();
+      } catch (error) {
+        console.error("Gagal mengirim payout:", error);
+        alert("Gagal memproses payout di database.");
+      }
     }
   };
 
@@ -93,7 +208,7 @@ export function PayoutMingguan() {
           <div className="flex-1">
             <h4 className="font-medium text-blue-900 mb-1">Siklus Payout Mingguan</h4>
             <p className="text-sm text-blue-700">
-              Periode: <strong>14 Apr - 20 Apr 2026</strong> (Minggu - Sabtu)<br />
+              Periode: <strong>{getCurrentCycle()}</strong> (Senin - Sabtu)<br />
               Sesi yang dilakukan pada hari Minggu akan masuk ke siklus minggu berikutnya.
             </p>
           </div>
@@ -140,7 +255,7 @@ export function PayoutMingguan() {
                       </div>
                       <div>
                         <p className="font-medium">{payout.tutorNama}</p>
-                        <p className="text-xs text-gray-500">{payout.tutorId}</p>
+                        <p className="text-xs text-blue-600 font-mono font-medium">{tutorsMap[payout.tutorId] || payout.tutorKode || payout.tutorId}</p>
                       </div>
                     </div>
                   </td>
@@ -195,23 +310,37 @@ export function PayoutMingguan() {
                     )}
                   </td>
                   <td className="px-6 py-5">
-                    <span
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs ${
-                        payout.status === 'sudah-payout'
-                          ? 'bg-green-100 text-green-700'
-                          : payout.status === 'diproses'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}
-                    >
-                      {payout.status === 'sudah-payout' && <CheckCircle className="w-3 h-3" />}
-                      {payout.status === 'diproses' && <Clock className="w-3 h-3" />}
-                      {payout.status === 'sudah-payout' ? 'Sudah Payout' :
-                       payout.status === 'diproses' ? 'Diproses' : 'Disetujui'}
-                    </span>
+                    {isPayoutOverdue(payout) ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-red-100 text-red-700 font-semibold animate-pulse">
+                        <Clock className="w-3 h-3 text-red-600" />
+                        Terlambat
+                      </span>
+                    ) : (
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs ${
+                          payout.status === 'sudah-payout'
+                            ? 'bg-green-100 text-green-700'
+                            : payout.status === 'diproses'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {payout.status === 'sudah-payout' && <CheckCircle className="w-3 h-3" />}
+                        {payout.status === 'diproses' && <Clock className="w-3 h-3" />}
+                        {payout.status === 'sudah-payout' ? 'Sudah Payout' :
+                         payout.status === 'diproses' ? 'Diproses' : 'Disetujui'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewRekap(payout)}
+                        className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                        title="Lihat Rekap Sesi"
+                      >
+                        <Eye className="w-4 h-4 text-blue-600" />
+                      </button>
                       {payout.status === 'disetujui' && (
                         <button
                           onClick={() => handleProsesPayout(payout.id)}
@@ -223,7 +352,7 @@ export function PayoutMingguan() {
                       )}
                       {payout.status === 'diproses' && (
                         <button
-                          onClick={() => handleSudahPayout(payout.id)}
+                          onClick={() => handleSudahPayout(payout.id, payout.tutorId)}
                           className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
                         >
                           <CheckCircle className="w-4 h-4" />
@@ -244,6 +373,113 @@ export function PayoutMingguan() {
           </div>
         )}
       </div>
+
+      {selectedPayout && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedPayout(null)}>
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-lg">Rekap Sesi Disetujui</h3>
+                <p className="text-sm text-gray-500">{selectedPayout.id}</p>
+              </div>
+              <button
+                onClick={() => setSelectedPayout(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Nama Tutor</p>
+                  <p className="font-medium">{selectedPayout.tutorNama}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">ID Tutor</p>
+                  <p className="font-medium font-mono text-blue-600">{tutorsMap[selectedPayout.tutorId] || selectedPayout.tutorKode || selectedPayout.tutorId}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Rekening Tujuan</p>
+                  <p className="font-medium">{selectedPayout.namaBank} - {selectedPayout.noRekening}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Periode Sesi</p>
+                  <p className="font-medium">{getCyclePeriod(selectedPayout.periodeStart, selectedPayout.periodeEnd)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Status Pembayaran</p>
+                  {isPayoutOverdue(selectedPayout) ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 mt-1 rounded-full text-xs bg-red-100 text-red-700 font-semibold animate-pulse">
+                      <Clock className="w-3 h-3 text-red-600" />
+                      Terlambat (Belum Transfer)
+                    </span>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center gap-1 px-3 py-1 mt-1 rounded-full text-xs ${
+                        selectedPayout.status === 'sudah-payout'
+                          ? 'bg-green-100 text-green-700'
+                          : selectedPayout.status === 'diproses'
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}
+                    >
+                      {selectedPayout.status === 'sudah-payout' ? 'Sudah Payout' :
+                       selectedPayout.status === 'diproses' ? 'Diproses' : 'Disetujui'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-3">Rincian Sesi ({selectedPayout.jumlahSesi} sesi)</h4>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left px-4 py-3 text-sm text-gray-600">Tanggal</th>
+                        <th className="text-left px-4 py-3 text-sm text-gray-600">Siswa</th>
+                        <th className="text-left px-4 py-3 text-sm text-gray-600">Mata Pelajaran</th>
+                        <th className="text-left px-4 py-3 text-sm text-gray-600">Durasi</th>
+                        <th className="text-right px-4 py-3 text-sm text-gray-600">Fee Bersih</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {(selectedPayout.sessions || []).map((session, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm">{formatDate(session.tanggal)}</td>
+                          <td className="px-4 py-3 text-sm">{session.siswa}</td>
+                          <td className="px-4 py-3 text-sm">{session.mapel}</td>
+                          <td className="px-4 py-3 text-sm">{session.durasi} menit</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-green-600">{formatRupiah(session.fee)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                      <tr>
+                        <td colSpan={4} className="px-4 py-3 text-right font-semibold">Total Transfer Payout:</td>
+                        <td className="px-4 py-3 text-right font-bold text-green-600 text-lg">
+                          {formatRupiah(selectedPayout.totalNominal)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setSelectedPayout(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

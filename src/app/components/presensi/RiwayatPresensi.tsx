@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import { Search, Download, Filter, Eye, Edit2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, Filter, Eye, Edit2, X } from 'lucide-react';
+import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { ModalEditRiwayat } from './ModalEditRiwayat';
+import api from '../../../services/api';
 
 interface Presensi {
   id: string;
+  tutorId: string;
   tutorNama: string;
+  siswaId: string;
   siswaNama: string;
   mapelNama: string;
   level: string;
@@ -12,58 +16,52 @@ interface Presensi {
   durasi: number;
   feeBersih: number;
   status: 'disetujui' | 'ditolak' | 'selesai';
+  catatan: string;
+  buktiUrl: string;
 }
 
-const mockRiwayat: Presensi[] = [
-  {
-    id: 'SES-20260420-001',
-    tutorNama: 'Mellysa',
-    siswaNama: 'Ahmad Rizki',
-    mapelNama: 'Matematika',
-    level: 'SD',
-    tanggal: '2026-04-20',
-    durasi: 90,
-    feeBersih: 45000,
-    status: 'selesai',
-  },
-  {
-    id: 'SES-20260419-002',
-    tutorNama: 'Budi Santoso',
-    siswaNama: 'Dedi Prasetyo',
-    mapelNama: 'Fisika',
-    level: 'SMA',
-    tanggal: '2026-04-19',
-    durasi: 120,
-    feeBersih: 63000,
-    status: 'disetujui',
-  },
-  {
-    id: 'SES-20260418-003',
-    tutorNama: 'Mellysa',
-    siswaNama: 'Budi Santoso',
-    mapelNama: 'Fisika',
-    level: 'SMP',
-    tanggal: '2026-04-18',
-    durasi: 90,
-    feeBersih: 54000,
-    status: 'ditolak',
-  },
-];
+interface RiwayatPresensiProps {
+  onRefresh: () => void;
+}
 
-export function RiwayatPresensi() {
+export function RiwayatPresensi({ onRefresh }: RiwayatPresensiProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'disetujui' | 'ditolak' | 'selesai'>('all');
   const [levelFilter, setLevelFilter] = useState<'all' | 'Calistung' | 'SD' | 'SMP' | 'SMA'>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [editingPresensi, setEditingPresensi] = useState<Presensi | null>(null);
+  const [viewingPresensi, setViewingPresensi] = useState<Presensi | null>(null);
+  
+  const [riwayat, setRiwayat] = useState<Presensi[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredRiwayat = mockRiwayat.filter((presensi) => {
+  const fetchRiwayat = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/attendances');
+      // Filter out only approved, rejected, and payout completed statuses
+      const filtered = response.data.filter((item: any) => 
+        item.status === 'disetujui' || item.status === 'ditolak' || item.status === 'selesai'
+      );
+      setRiwayat(filtered);
+    } catch (error) {
+      console.error('Gagal mengambil riwayat presensi:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRiwayat();
+  }, []);
+
+  const filteredRiwayat = riwayat.filter((presensi) => {
     const matchesSearch =
       presensi.tutorNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       presensi.siswaNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       presensi.mapelNama.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || presensi.status === statusFilter;
-    const matchesLevel = levelFilter === 'all' || presensi.level === levelFilter;
+    const matchesLevel = levelFilter === 'all' || presensi.level.toUpperCase().includes(levelFilter.toUpperCase());
     return matchesSearch && matchesStatus && matchesLevel;
   });
 
@@ -77,11 +75,11 @@ export function RiwayatPresensi() {
 
   const getStatusBadge = (status: string) => {
     const badges = {
-      disetujui: 'bg-green-100 text-green-700',
-      ditolak: 'bg-red-100 text-red-700',
-      selesai: 'bg-blue-100 text-blue-700',
+      disetujui: 'bg-green-100 text-green-700 font-semibold',
+      ditolak: 'bg-red-100 text-red-700 font-semibold',
+      selesai: 'bg-blue-100 text-blue-700 font-semibold',
     };
-    return badges[status as keyof typeof badges] || 'bg-gray-100 text-gray-700';
+    return badges[status as keyof typeof badges] || 'bg-gray-100 text-gray-700 font-semibold';
   };
 
   const getStatusLabel = (status: string) => {
@@ -97,8 +95,36 @@ export function RiwayatPresensi() {
     alert(`Export data sebagai ${format.toUpperCase()}\n\nTotal: ${filteredRiwayat.length} data`);
   };
 
-  const handleSaveEdit = (updated: Presensi) => {
-    alert(`Presensi ${updated.id} berhasil diupdate!\nDurasi: ${updated.durasi} menit\nFee Baru: ${formatRupiah(updated.feeBersih)}`);
+  const handleSaveEdit = async (updated: Presensi) => {
+    try {
+      await api.put(`/attendances/${updated.id}`, {
+        mapelNama: updated.mapelNama,
+        durasi: updated.durasi,
+        feeBersih: updated.feeBersih,
+        catatan: updated.catatan,
+        tanggal: updated.tanggal,
+        status: updated.status,
+      });
+      alert(`Presensi berhasil diperbarui!`);
+      setEditingPresensi(null);
+      fetchRiwayat();
+      onRefresh();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Gagal memperbarui riwayat presensi');
+    }
+  };
+
+  const getBuktiImage = (url: string) => {
+    if (
+      !url ||
+      url.includes('placeholder') ||
+      url.includes('via.placeholder.com') ||
+      url.includes('dummy') ||
+      url.includes('dummy.com')
+    ) {
+      return 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&auto=format&fit=crop&q=60';
+    }
+    return url;
   };
 
   return (
@@ -112,15 +138,15 @@ export function RiwayatPresensi() {
               placeholder="Cari tutor, siswa, atau mapel..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
 
           <button
             onClick={() => setShowFilter(!showFilter)}
-            className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl transition-colors font-medium text-sm ${
               showFilter
-                ? 'border-blue-600 bg-blue-50 text-blue-600'
+                ? 'border-blue-600 bg-blue-50 text-blue-600 font-semibold'
                 : 'border-gray-200 hover:bg-gray-50'
             }`}
           >
@@ -128,45 +154,43 @@ export function RiwayatPresensi() {
             Filter
           </button>
 
-          <div className="relative">
-            <button
-              onClick={() => {
-                const format = confirm('Export sebagai PDF?\n\nKlik OK untuk PDF, Cancel untuk Excel');
-                handleExport(format ? 'pdf' : 'excel');
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Download className="w-5 h-5" />
-              Export Data
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              const format = confirm('Export sebagai PDF?\n\nKlik OK untuk PDF, Cancel untuk Excel');
+              handleExport(format ? 'pdf' : 'excel');
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm shadow-xs"
+          >
+            <Download className="w-5 h-5" />
+            Export Data
+          </button>
         </div>
       </div>
 
       {showFilter && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h4 className="font-medium mb-4">Filter Data</h4>
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-xs animate-in fade-in duration-200">
+          <h4 className="font-bold text-gray-800 mb-4">Filter Data</h4>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Tanggal Mulai</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Tanggal Mulai</label>
               <input
                 type="date"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Tanggal Akhir</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Tanggal Akhir</label>
               <input
                 type="date"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Status</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Status</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
               >
                 <option value="all">Semua Status</option>
                 <option value="disetujui">Disetujui</option>
@@ -175,11 +199,11 @@ export function RiwayatPresensi() {
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Level</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Level</label>
               <select
                 value={levelFilter}
                 onChange={(e) => setLevelFilter(e.target.value as any)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
               >
                 <option value="all">Semua Level</option>
                 <option value="Calistung">Calistung</option>
@@ -192,98 +216,190 @@ export function RiwayatPresensi() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">ID Sesi</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Tanggal</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Tutor</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Siswa</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Mapel</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Durasi</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Fee Bersih</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Status</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredRiwayat.map((presensi) => (
-                <tr key={presensi.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-gray-500 font-mono">{presensi.id}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm">
-                      {new Date(presensi.tanggal).toLocaleDateString('id-ID')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm">{presensi.tutorNama}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm">{presensi.siswaNama}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <p className="text-sm">{presensi.mapelNama}</p>
-                      <p className="text-xs text-gray-500">{presensi.level}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm">{presensi.durasi} menit</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-medium text-green-600">
-                      {formatRupiah(presensi.feeBersih)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs ${getStatusBadge(
-                        presensi.status
-                      )}`}
-                    >
-                      {getStatusLabel(presensi.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEditingPresensi(presensi)}
-                        className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                        title="Lihat Detail"
-                      >
-                        <Eye className="w-4 h-4 text-blue-600" />
-                      </button>
-                      {presensi.status !== 'selesai' && (
-                        <button
-                          onClick={() => setEditingPresensi(presensi)}
-                          className="p-2 hover:bg-purple-100 rounded-lg transition-colors"
-                          title="Edit Data"
-                        >
-                          <Edit2 className="w-4 h-4 text-purple-600" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="text-center py-16 text-gray-500 font-medium bg-gray-50/50">
+              Memuat data riwayat...
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">ID Sesi</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Tanggal</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Tutor</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Siswa</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Mapel</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Durasi</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Fee Bersih</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredRiwayat.map((presensi) => (
+                  <tr key={presensi.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-500 font-mono font-medium">
+                        {presensi.id.includes("-") && presensi.id.length > 8
+                          ? `SES-${presensi.id.split("-")[0].toUpperCase()}`
+                          : presensi.id.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-700">
+                        {new Date(presensi.tanggal).toLocaleDateString('id-ID')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-gray-700">{presensi.tutorNama}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-700">{presensi.siswaNama}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-sm text-gray-800 font-medium">{presensi.mapelNama}</p>
+                        <p className="text-xs text-gray-500 font-medium">{presensi.level}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-gray-700">{presensi.durasi} menit</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-bold text-green-600">
+                        {formatRupiah(presensi.feeBersih)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusBadge(
+                          presensi.status
+                        )}`}
+                      >
+                        {getStatusLabel(presensi.status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setViewingPresensi(presensi)}
+                          className="p-2 hover:bg-blue-50 text-blue-600 rounded-xl transition-colors"
+                          title="Lihat Detail"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {presensi.status !== 'selesai' && (
+                          <button
+                            onClick={() => setEditingPresensi(presensi)}
+                            className="p-2 hover:bg-purple-50 text-purple-600 rounded-xl transition-colors"
+                            title="Edit Data"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {filteredRiwayat.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+        {!loading && filteredRiwayat.length === 0 && (
+          <div className="text-center py-16 text-gray-500 font-medium bg-gray-50/50">
             Tidak ada riwayat presensi yang ditemukan
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <p>Menampilkan {filteredRiwayat.length} dari {mockRiwayat.length} data</p>
+      <div className="flex items-center justify-between text-sm text-gray-500 font-medium px-2">
+        <p>Menampilkan {filteredRiwayat.length} dari {riwayat.length} data</p>
       </div>
+
+      {viewingPresensi && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          onClick={() => setViewingPresensi(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-150 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h3 className="text-xl font-bold text-gray-800">Detail Riwayat Presensi</h3>
+              <button
+                onClick={() => setViewingPresensi(null)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wider">Tutor</p>
+                  <p className="font-bold text-gray-800">{viewingPresensi.tutorNama}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wider">Siswa</p>
+                  <p className="font-bold text-gray-800">{viewingPresensi.siswaNama}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wider">Mata Pelajaran</p>
+                  <p className="font-bold text-gray-800">{viewingPresensi.mapelNama}</p>
+                  <p className="text-xs text-gray-500 font-medium mt-0.5">{viewingPresensi.level}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wider">Tanggal & Waktu</p>
+                  <p className="font-bold text-gray-800">
+                    {new Date(viewingPresensi.tanggal).toLocaleDateString('id-ID')}
+                  </p>
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">{viewingPresensi.waktuMulai || '12:00'}</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wider">Durasi</p>
+                  <p className="font-bold text-gray-800">{viewingPresensi.durasi} menit</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wider">Fee Bersih</p>
+                  <p className="font-extrabold text-lg text-green-600">{formatRupiah(viewingPresensi.feeBersih)}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-gray-800 mb-2">Catatan</h4>
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{viewingPresensi.catatan || 'Tidak ada catatan.'}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-gray-800 mb-2">Bukti Pembelajaran</h4>
+                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-xs bg-gray-50 flex items-center justify-center p-2">
+                  <ImageWithFallback
+                    src={getBuktiImage(viewingPresensi.buktiUrl)}
+                    alt="Bukti Pembelajaran"
+                    className="max-h-[450px] object-contain rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-150 flex sticky bottom-0 bg-white z-10">
+              <button
+                onClick={() => setViewingPresensi(null)}
+                className="flex-1 py-3 bg-blue-600 text-white hover:bg-blue-700 font-semibold rounded-xl transition-colors text-sm shadow-xs"
+              >
+                Tutup Detail
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ModalEditRiwayat
         isOpen={editingPresensi !== null}

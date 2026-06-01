@@ -23,7 +23,28 @@ const topTutorRevenue = [
   { nama: 'Agus Wijaya', totalGross: 1600000, adminShare: 160000, sessions: 16 },
 ];
 
-export function LaporanPendapatan() {
+interface LaporanPendapatanProps {
+  data?: {
+    monthlyData: Array<{
+      bulan: string;
+      grossRevenue: number;
+      adminProfit: number;
+    }>;
+    weeklyData: Array<{
+      minggu: string;
+      gross: number;
+      profit: number;
+    }>;
+    topTutorRevenue: Array<{
+      nama: string;
+      totalGross: number;
+      adminShare: number;
+      sessions: number;
+    }>;
+  };
+}
+
+export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -32,9 +53,23 @@ export function LaporanPendapatan() {
     }).format(amount);
   };
 
-  const totalGrossApril = 11200000;
-  const totalProfitApril = 1120000;
-  const growthRate = ((totalProfitApril - 1010000) / 1010000 * 100).toFixed(1);
+  const activeMonthlyData = data?.monthlyData || [];
+  const activeWeeklyData = data?.weeklyData || [];
+  const activeTopTutorRevenue = data?.topTutorRevenue || [];
+
+  const latestMonthData = activeMonthlyData[activeMonthlyData.length - 1] || { grossRevenue: 0, adminProfit: 0, bulan: '-' };
+  const prevMonthData = activeMonthlyData[activeMonthlyData.length - 2] || { grossRevenue: 0, adminProfit: 0, bulan: '-' };
+
+  const totalGrossApril = latestMonthData.grossRevenue;
+  const totalProfitApril = latestMonthData.adminProfit;
+  
+  const growthRateVal = prevMonthData.adminProfit > 0 
+    ? ((totalProfitApril - prevMonthData.adminProfit) / prevMonthData.adminProfit * 100)
+    : 0.0;
+  const growthRate = growthRateVal.toFixed(1);
+  const growthText = parseFloat(growthRate) >= 0 ? `+${growthRate}%` : `${growthRate}%`;
+
+  const latestMonthName = latestMonthData.bulan;
 
   const handleExport = (format: 'excel' | 'pdf') => {
     alert(`Exporting laporan pendapatan ke format ${format.toUpperCase()}...\n\nFungsi export akan diimplementasikan.`);
@@ -49,7 +84,7 @@ export function LaporanPendapatan() {
               <DollarSign className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm text-green-100">Total Gross Revenue April</p>
+              <p className="text-sm text-green-100">Total Gross Revenue {latestMonthName}</p>
               <p className="text-3xl font-bold">{formatRupiah(totalGrossApril)}</p>
             </div>
           </div>
@@ -62,7 +97,7 @@ export function LaporanPendapatan() {
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm text-blue-100">Profit Admin (10%) April</p>
+              <p className="text-sm text-blue-100">Profit Admin (10%) {latestMonthName}</p>
               <p className="text-3xl font-bold">{formatRupiah(totalProfitApril)}</p>
             </div>
           </div>
@@ -76,7 +111,7 @@ export function LaporanPendapatan() {
             </div>
             <div>
               <p className="text-sm text-purple-100">Pertumbuhan Bulan Ini</p>
-              <p className="text-3xl font-bold">+{growthRate}%</p>
+              <p className="text-3xl font-bold">{growthText}</p>
             </div>
           </div>
           <p className="text-sm text-purple-100 mt-2">Dibandingkan bulan lalu</p>
@@ -106,7 +141,7 @@ export function LaporanPendapatan() {
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h4 className="font-semibold mb-4">Perbandingan Gross Revenue vs Admin Profit (Bulanan)</h4>
         <ResponsiveContainer width="100%" height={350}>
-          <LineChart data={monthlyData} key="monthly-revenue-chart">
+          <LineChart data={activeMonthlyData} key="monthly-revenue-chart">
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="bulan" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
@@ -136,9 +171,9 @@ export function LaporanPendapatan() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h4 className="font-semibold mb-4">Breakdown Mingguan April 2026</h4>
+        <h4 className="font-semibold mb-4">Breakdown Mingguan {latestMonthName} 2026</h4>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={weeklyData} key="weekly-breakdown-chart">
+          <BarChart data={activeWeeklyData} key="weekly-breakdown-chart">
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="minggu" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
@@ -168,8 +203,8 @@ export function LaporanPendapatan() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {topTutorRevenue.map((tutor, index) => {
-                const contribution = ((tutor.adminShare / totalProfitApril) * 100).toFixed(1);
+              {activeTopTutorRevenue.map((tutor, index) => {
+                const contribution = totalProfitApril > 0 ? ((tutor.adminShare / totalProfitApril) * 100).toFixed(1) : "0.0";
                 return (
                   <tr key={index} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-5">
@@ -183,7 +218,7 @@ export function LaporanPendapatan() {
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white">
+                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
                           {tutor.nama.charAt(0).toUpperCase()}
                         </div>
                         <p className="font-medium">{tutor.nama}</p>
@@ -221,10 +256,10 @@ export function LaporanPendapatan() {
               <tr>
                 <td colSpan={3} className="px-6 py-4 text-right font-semibold">Total:</td>
                 <td className="px-6 py-4 font-bold text-green-600 text-lg">
-                  {formatRupiah(topTutorRevenue.reduce((sum, t) => sum + t.totalGross, 0))}
+                  {formatRupiah(activeTopTutorRevenue.reduce((sum, t) => sum + t.totalGross, 0))}
                 </td>
                 <td className="px-6 py-4 font-bold text-blue-600 text-lg">
-                  {formatRupiah(topTutorRevenue.reduce((sum, t) => sum + t.adminShare, 0))}
+                  {formatRupiah(activeTopTutorRevenue.reduce((sum, t) => sum + t.adminShare, 0))}
                 </td>
                 <td className="px-6 py-4"></td>
               </tr>
