@@ -2,6 +2,7 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -25,6 +26,15 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        role: user.role,
+      },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
     res.json({
       message: "Login berhasil",
       user: {
@@ -32,7 +42,7 @@ export const login = async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
       },
-      token: "dummy-token",
+      token,
     });
   } catch (error) {
     console.error(error);
@@ -41,3 +51,4 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 };
+
