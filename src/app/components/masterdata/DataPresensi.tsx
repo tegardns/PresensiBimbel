@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Search, Image as ImageIcon } from 'lucide-react';
+// PRIVATE_FIXED/src/app/components/masterdata/DataPresensi.tsx
+import { useEffect, useState } from "react";
+import { Search, Image as ImageIcon } from "lucide-react";
 
 interface Presensi {
   id: string;
@@ -16,46 +17,61 @@ interface Presensi {
   feeBersih: number;
 }
 
-const mockPresensi: Presensi[] = [
-  {
-    id: 'SES-20260422-001',
-    tutorId: 'TUT-001',
-    tutorNama: 'Mellysa',
-    siswaId: 'SIS-001',
-    siswaNama: 'Ahmad Rizki',
-    mapelId: 'MAP-001',
-    mapelNama: 'Matematika',
-    tanggal: '2026-04-22',
-    durasi: 90,
-    buktiUrl: 'https://via.placeholder.com/400x300',
-    catatan: 'Belajar perkalian dan pembagian',
-    feeBersih: 45000,
-  },
-  {
-    id: 'SES-20260421-002',
-    tutorId: 'TUT-002',
-    tutorNama: 'Budi Santoso',
-    siswaNama: 'Dedi Prasetyo',
-    siswaId: 'SIS-003',
-    mapelId: 'MAP-005',
-    mapelNama: 'Fisika',
-    tanggal: '2026-04-21',
-    durasi: 120,
-    buktiUrl: 'https://via.placeholder.com/400x300',
-    catatan: 'Pembahasan gerak parabola',
-    feeBersih: 63000,
-  },
-];
-
 interface DataPresensiProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
 
-export function DataPresensi({ searchQuery, setSearchQuery }: DataPresensiProps) {
+export function DataPresensi({
+  searchQuery,
+  setSearchQuery,
+}: DataPresensiProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [presensiData, setPresensiData] = useState<Presensi[]>([]);
 
-  const filteredPresensi = mockPresensi.filter((presensi) => {
+  useEffect(() => {
+    fetchPresensi();
+  }, []);
+
+  const fetchPresensi = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/api/attendances");
+      const data = await res.json();
+
+      const mapped: Presensi[] = data.map((item: any, index: number) => ({
+        id:
+          item.id ||
+          `SES-${new Date().getFullYear()}${String(index + 1).padStart(
+            3,
+            "0",
+          )}`,
+
+        tutorId: item.tutorId || "-",
+        tutorNama: item.tutor || "-",
+
+        siswaId: item.studentId || "-",
+        siswaNama: item.siswa || "-",
+
+        mapelId: item.mapelId || `MAP-${String(index + 1).padStart(3, "0")}`,
+        mapelNama: item.mapel || "-",
+
+        tanggal: item.tanggal,
+        durasi: item.durasi,
+
+        buktiUrl:
+          item.foto || "https://via.placeholder.com/400x300?text=No+Image",
+
+        catatan: item.catatan || "-",
+        feeBersih: item.fee,
+      }));
+
+      setPresensiData(mapped);
+    } catch (error) {
+      console.log("Gagal ambil data presensi");
+    }
+  };
+
+  const filteredPresensi = presensiData.filter((presensi) => {
     return (
       presensi.tutorNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       presensi.siswaNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -64,18 +80,18 @@ export function DataPresensi({ searchQuery, setSearchQuery }: DataPresensiProps)
   });
 
   const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
       minimumFractionDigits: 0,
     }).format(amount);
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+    return new Date(dateStr).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     });
   };
 
@@ -84,6 +100,7 @@ export function DataPresensi({ searchQuery, setSearchQuery }: DataPresensiProps)
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+
           <input
             type="text"
             placeholder="Cari presensi..."
@@ -104,37 +121,72 @@ export function DataPresensi({ searchQuery, setSearchQuery }: DataPresensiProps)
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">ID Sesi</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Tanggal</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Tutor</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Siswa</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Mata Pelajaran</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Durasi</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Bukti Foto</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Fee Bersih</th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  ID Sesi
+                </th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Tanggal
+                </th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Tutor
+                </th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Siswa
+                </th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Mata Pelajaran
+                </th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Durasi
+                </th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Bukti Foto
+                </th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Fee Bersih
+                </th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-100">
               {filteredPresensi.map((presensi) => (
-                <tr key={presensi.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={presensi.id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
                   <td className="px-6 py-4">
                     <span className="text-sm text-gray-500">{presensi.id}</span>
                   </td>
+
                   <td className="px-6 py-4">
-                    <span className="text-sm">{formatDate(presensi.tanggal)}</span>
+                    <span className="text-sm">
+                      {formatDate(presensi.tanggal)}
+                    </span>
                   </td>
+
                   <td className="px-6 py-4">
                     <span className="text-sm">{presensi.tutorNama}</span>
                   </td>
+
                   <td className="px-6 py-4">
                     <span className="text-sm">{presensi.siswaNama}</span>
                   </td>
+
                   <td className="px-6 py-4">
                     <span className="text-sm">{presensi.mapelNama}</span>
                   </td>
+
                   <td className="px-6 py-4">
                     <span className="text-sm">{presensi.durasi} menit</span>
                   </td>
+
                   <td className="px-6 py-4">
                     <button
                       onClick={() => setSelectedImage(presensi.buktiUrl)}
@@ -144,6 +196,7 @@ export function DataPresensi({ searchQuery, setSearchQuery }: DataPresensiProps)
                       <ImageIcon className="w-4 h-4 text-blue-600" />
                     </button>
                   </td>
+
                   <td className="px-6 py-4">
                     <span className="text-sm font-medium text-green-600">
                       {formatRupiah(presensi.feeBersih)}
@@ -174,6 +227,7 @@ export function DataPresensi({ searchQuery, setSearchQuery }: DataPresensiProps)
               className="w-full h-auto rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
+
             <button
               onClick={() => setSelectedImage(null)}
               className="mt-4 w-full py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"

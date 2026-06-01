@@ -1,123 +1,192 @@
-import { X, Search } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { Tutor, siswas, getLevelById } from '../../data/mockData';
+import { X, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Tutor, siswas, getLevelById } from "../../data/mockData";
 
 interface ModalTutorProps {
   isOpen: boolean;
   onClose: () => void;
   tutor: Tutor | null;
-  onSave: (tutorData: Tutor) => void;
+  onSave: (tutorData: any) => void;
 }
 
-const allSiswa = siswas.map(s => ({
-  id: s.id,
-  nama: s.nama,
-  level: getLevelById(s.levelId)?.nama || '',
-}));
+interface InputFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}
 
-export function ModalTutor({ isOpen, onClose, tutor, onSave }: ModalTutorProps) {
-  const [formData, setFormData] = useState<Tutor>({
-    id: '',
-    nama: '',
-    email: '',
-    posisi: '',
-    noWa: '',
-    alamat: '',
-    namaBank: '',
-    noRek: '',
-    username: '',
-    status: 'aktif',
-  });
-  const [password, setPassword] = useState('');
-  const [selectedSiswa, setSelectedSiswa] = useState<string[]>(['SIS-001', 'SIS-002']);
-  const [searchSiswa, setSearchSiswa] = useState('');
+export function ModalTutor({
+  isOpen,
+  onClose,
+  tutor,
+  onSave,
+}: ModalTutorProps) {
+  const [students, setStudents] = useState<any[]>([]);
+  const [selectedSiswa, setSelectedSiswa] = useState<string[]>([]);
+  const [searchSiswa, setSearchSiswa] = useState("");
+
+  const emptyForm = {
+    id: "",
+    nama: "",
+    email: "",
+    posisi: "",
+    noWa: "",
+    alamat: "",
+    namaBank: "",
+    noRek: "",
+    status: "aktif" as "aktif" | "nonaktif",
+  };
+
+  const [formData, setFormData] = useState(emptyForm);
+
+  // =========================
+  // FETCH SISWA
+  // =========================
+  useEffect(() => {
+    fetch("http://localhost:4000/api/students")
+      .then((res) => res.json())
+      .then((data) => setStudents(data))
+      .catch(() => console.log("Gagal ambil data siswa"));
+  }, []);
+
+  const allSiswa =
+    students.length > 0
+      ? students.map((s: any) => ({
+          id: s.id,
+          nama: s.fullName || "-",
+          level: s.schoolName || "-", // ambil dari API lu
+        }))
+      : siswas.map((s) => ({
+          id: s.id,
+          nama: s.nama,
+          level: getLevelById(s.levelId)?.nama || "-",
+        }));
+
+  // =========================
+  // RESET FORM
+  // =========================
+  // useEffect(() => {
+  //   if (!isOpen) return;
+
+  //   if (tutor) {
+  //     setFormData({ ...emptyForm, ...tutor });
+  //   } else {
+  //     setFormData(emptyForm);
+  //   }
+
+  //   setSelectedSiswa([]);
+  //   setSearchSiswa("");
+  // }, [isOpen, tutor]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     if (tutor) {
-      setFormData(tutor);
+      setFormData({ ...emptyForm, ...tutor });
+
+      // 🔥 FIX: ambil dari relasi DB
+      setSelectedSiswa(tutor.students?.map((s: any) => s.id) || []);
     } else {
-      setFormData({
-        id: '',
-        nama: '',
-        email: '',
-        posisi: '',
-        noWa: '',
-        alamat: '',
-        namaBank: '',
-        noRek: '',
-        username: '',
-        status: 'aktif',
-      });
-      setPassword('');
+      setFormData(emptyForm);
+      setSelectedSiswa([]);
     }
-  }, [tutor]);
+
+    setSearchSiswa("");
+  }, [isOpen, tutor]);
 
   if (!isOpen) return null;
 
+  // =========================
+  // GENERATE ID
+  // =========================
+  const generateId = () => {
+    return `TUT-${Date.now().toString().slice(-4)}`;
+  };
+
+  // =========================
+  // SUBMIT
+  // =========================
   const handleSubmit = () => {
-    if (!formData.nama || !formData.email || !formData.posisi || !formData.noWa || !formData.username) {
-      alert('Mohon lengkapi semua field yang wajib diisi (*)');
+    if (
+      !formData.nama ||
+      !formData.email ||
+      !formData.posisi ||
+      !formData.noWa
+    ) {
+      alert("Mohon lengkapi field wajib (*)");
       return;
     }
 
-    if (!tutor && !password) {
-      alert('Password wajib diisi untuk tutor baru');
-      return;
-    }
+    const finalData = {
+      ...formData,
+      id: tutor ? formData.id : generateId(),
+      studentIds: selectedSiswa,
+    };
 
-    onSave(formData);
+    // onSave(finalData);
+    onSave({
+      ...formData,
+      studentIds: selectedSiswa, // 🔥 ini key penting
+    });
     onClose();
   };
 
-  const availableSiswa = allSiswa.filter(s => !selectedSiswa.includes(s.id));
-  const assignedSiswa = allSiswa.filter(s => selectedSiswa.includes(s.id));
+  const availableSiswa = allSiswa.filter((s) => !selectedSiswa.includes(s.id));
+  const assignedSiswa = allSiswa.filter((s) => selectedSiswa.includes(s.id));
 
-  const filteredAvailable = availableSiswa.filter(s =>
-    s.nama.toLowerCase().includes(searchSiswa.toLowerCase())
+  const filteredAvailable = availableSiswa.filter((s) =>
+    s.nama.toLowerCase().includes(searchSiswa.toLowerCase()),
   );
 
   const addSiswa = (id: string) => {
-    setSelectedSiswa([...selectedSiswa, id]);
+    setSelectedSiswa((prev) => [...prev, id]);
   };
 
   const removeSiswa = (id: string) => {
-    setSelectedSiswa(selectedSiswa.filter(s => s !== id));
+    setSelectedSiswa((prev) => prev.filter((s) => s !== id));
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-end z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/50 flex justify-end z-50"
+      onClick={onClose}
+    >
       <div
         className="bg-white h-full w-full max-w-2xl overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()} // ✅ FIX biar gak ke-close
       >
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-          <h2 className="text-2xl">{tutor ? 'Edit Tutor' : 'Tambah Tutor'}</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6" />
+        {/* HEADER */}
+        <div className="sticky top-0 bg-white border-b p-6 flex justify-between">
+          <h2 className="text-2xl">{tutor ? "Edit Tutor" : "Tambah Tutor"}</h2>
+          <button onClick={onClose}>
+            <X />
           </button>
         </div>
 
         <div className="p-6 space-y-6">
+          {/* ID + STATUS */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-2">ID Tutor</label>
+              <label className="text-sm">ID Tutor</label>
               <input
-                type="text"
-                value={tutor?.id || 'Auto Generated'}
+                value={tutor?.id || "Auto Generate"}
                 disabled
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50"
+                className="w-full border px-3 py-2 rounded bg-gray-100"
               />
             </div>
 
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Status</label>
+              <label className="text-sm">Status</label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'aktif' | 'nonaktif' })}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-white"
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    status: e.target.value as "aktif" | "nonaktif",
+                  })
+                }
+                className="w-full border px-3 py-2 rounded"
               >
                 <option value="aktif">Aktif</option>
                 <option value="nonaktif">Nonaktif</option>
@@ -125,195 +194,130 @@ export function ModalTutor({ isOpen, onClose, tutor, onSave }: ModalTutorProps) 
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Nama Lengkap *</label>
-            <input
-              type="text"
-              value={formData.nama}
-              onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-              placeholder="Masukkan nama lengkap"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <InputField
+            label="Nama Lengkap *"
+            value={formData.nama}
+            onChange={(v) => setFormData({ ...formData, nama: v })}
+          />
 
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Email *</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="email@example.com"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <InputField
+            label="Email *"
+            value={formData.email}
+            onChange={(v) => setFormData({ ...formData, email: v })}
+          />
 
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Posisi *</label>
-            <input
-              type="text"
-              value={formData.posisi}
-              onChange={(e) => setFormData({ ...formData, posisi: e.target.value })}
-              placeholder="Contoh: Tentor Matematika & Fisika"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <InputField
+            label="Posisi *"
+            value={formData.posisi}
+            onChange={(v) => setFormData({ ...formData, posisi: v })}
+          />
 
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Nomor WhatsApp *</label>
-            <input
-              type="text"
-              value={formData.noWa}
-              onChange={(e) => setFormData({ ...formData, noWa: e.target.value })}
-              placeholder="08xxxxxxxxxx"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <InputField
+            label="No WhatsApp *"
+            value={formData.noWa}
+            onChange={(v) => setFormData({ ...formData, noWa: v })}
+          />
 
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">Alamat</label>
-            <textarea
-              value={formData.alamat}
-              onChange={(e) => setFormData({ ...formData, alamat: e.target.value })}
-              placeholder="Masukkan alamat lengkap"
-              rows={3}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <InputField
+            label="Alamat"
+            value={formData.alamat}
+            onChange={(v) => setFormData({ ...formData, alamat: v })}
+          />
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">Nama Bank</label>
-              <select
-                value={formData.namaBank}
-                onChange={(e) => setFormData({ ...formData, namaBank: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-white"
-              >
-                <option value="">Pilih Bank</option>
-                <option value="BCA">BCA</option>
-                <option value="Mandiri">Mandiri</option>
-                <option value="BNI">BNI</option>
-                <option value="BRI">BRI</option>
-              </select>
-            </div>
+            <InputField
+              label="Nama Bank"
+              value={formData.namaBank}
+              onChange={(v) => setFormData({ ...formData, namaBank: v })}
+            />
 
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">Nomor Rekening</label>
-              <input
-                type="text"
-                value={formData.noRek}
-                onChange={(e) => setFormData({ ...formData, noRek: e.target.value })}
-                placeholder="xxxxxxxxxx"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            <InputField
+              label="No Rekening"
+              value={formData.noRek}
+              onChange={(v) => setFormData({ ...formData, noRek: v })}
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">Username *</label>
-              <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                placeholder="username"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          {/* SISWA */}
+          <div>
+            <h3 className="font-medium mb-3">Siswa</h3>
 
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">Password {!tutor && '*'}</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={tutor ? 'Kosongkan jika tidak diubah' : 'Masukkan password'}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="font-medium mb-4">Pengaturan Siswa yang Diajar</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Pilih siswa yang akan diajar oleh tutor ini. Siswa yang dipilih akan muncul di aplikasi tutor saat melakukan presensi.
-            </p>
+            <input
+              placeholder="Cari siswa..."
+              value={searchSiswa}
+              onChange={(e) => setSearchSiswa(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-2"
+            />
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">Siswa Tersedia</label>
-                <div className="relative mb-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Cari siswa..."
-                    value={searchSiswa}
-                    onChange={(e) => setSearchSiswa(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="border border-gray-200 rounded-lg h-64 overflow-y-auto">
-                  {filteredAvailable.map((siswa) => (
-                    <div
-                      key={siswa.id}
-                      className="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => addSiswa(siswa.id)}
-                    >
-                      <p className="text-sm font-medium">{siswa.nama}</p>
-                      <p className="text-xs text-gray-500">{siswa.level} • {siswa.id}</p>
-                    </div>
-                  ))}
-                  {filteredAvailable.length === 0 && (
-                    <div className="p-4 text-center text-sm text-gray-500">
-                      Tidak ada siswa tersedia
-                    </div>
-                  )}
-                </div>
+              <div className="border h-48 overflow-auto">
+                {filteredAvailable.map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={() => addSiswa(s.id)}
+                    className="p-2 cursor-pointer hover:bg-gray-100"
+                  >
+                    <p className="font-medium">{s.nama}</p>
+                    <p className="text-xs text-gray-500">{s.level}</p>
+                  </div>
+                ))}
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">
-                  Siswa yang Diajar ({assignedSiswa.length})
-                </label>
-                <div className="border border-blue-200 rounded-lg h-64 overflow-y-auto mt-8 bg-blue-50">
-                  {assignedSiswa.map((siswa) => (
-                    <div
-                      key={siswa.id}
-                      className="p-3 border-b border-blue-100 hover:bg-blue-100 cursor-pointer flex items-center justify-between"
-                      onClick={() => removeSiswa(siswa.id)}
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{siswa.nama}</p>
-                        <p className="text-xs text-gray-500">{siswa.level} • {siswa.id}</p>
-                      </div>
-                      <X className="w-4 h-4 text-gray-400" />
+              <div className="border h-48 overflow-auto bg-blue-50">
+                {assignedSiswa.map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={() => removeSiswa(s.id)}
+                    className="p-2 cursor-pointer hover:bg-blue-100 flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="font-medium">{s.nama}</p>
+                      <p className="text-xs text-gray-500">{s.level}</p>
                     </div>
-                  ))}
-                  {assignedSiswa.length === 0 && (
-                    <div className="p-4 text-center text-sm text-gray-500">
-                      Belum ada siswa yang dipilih
-                    </div>
-                  )}
-                </div>
+                    <X size={14} />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-6">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
+          {/* BUTTON */}
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 border py-2 rounded">
               Batal
             </button>
+
             <button
               onClick={handleSubmit}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 bg-blue-600 text-white py-2 rounded"
             >
-              {tutor ? 'Simpan Perubahan' : 'Tambah Tutor'}
+              {tutor ? "Update" : "Tambah"}
             </button>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// =========================
+// COMPONENT INPUT
+// =========================
+function InputField({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: InputFieldProps) {
+  return (
+    <div>
+      <label className="text-sm block mb-1">{label}</label>
+      <input
+        type={type}
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border px-3 py-2 rounded"
+      />
     </div>
   );
 }

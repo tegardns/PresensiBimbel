@@ -1,0 +1,131 @@
+// PRIVATE_FIXED/bimbel-backend/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  tutor Tutor?
+}
+
+model Tutor {
+  id        String   @id @default(uuid())
+
+  kode      String @unique
+
+  nama      String?
+  email     String?
+  posisi    String?
+  noWa      String?
+  alamat    String?
+  namaBank  String?
+  noRek     String?
+
+  status    Boolean  @default(true)
+
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id])
+
+  attendances Attendance[]
+
+  students   Student[] @relation("TutorStudents")
+
+  createdAt DateTime @default(now())
+}
+
+model Level {
+  id            String @id @default(uuid())
+  code          String @unique
+  name          String
+  hargaJual     Int
+  durasiMenit   Int
+  potonganAdmin Int
+
+  students Student[]
+  subjects Subject[]
+}
+
+model Student {
+  id          String  @id @default(uuid())
+  kode String @unique
+  fullName    String
+  levelId     String
+  address     String?
+  schoolName  String?
+  parentName  String?
+  parentPhone String?
+  isActive    Boolean @default(true)
+
+  level Level @relation(fields: [levelId], references: [id])
+
+  attendances Attendance[]
+
+  tutors     Tutor[] @relation("TutorStudents")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attendance {
+  id          String   @id @default(uuid())
+
+  tutorId     String
+  studentId   String
+
+  subjectName String
+  durationMin Int
+  photoUrl    String
+  notes       String?
+  feeNet      Int
+
+  status      AttendanceStatus @default(tertunda)
+
+  createdAt   DateTime @default(now())
+
+  tutor       Tutor   @relation(fields: [tutorId], references: [id])
+  student     Student @relation(fields: [studentId], references: [id])
+}
+
+enum Role {
+  admin
+  tutor
+}
+
+enum AttendanceStatus {
+  diselesaikan
+  tertunda
+  disetujui
+  ditolak
+  selesai
+}
+
+model Finance {
+  id        String   @id @default(uuid())
+  tutorId   String
+  amount    Int
+  type      String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model Subject {
+  id       String  @id @default(uuid())
+  code     String  @unique
+  name     String
+  levelId  String
+  isActive Boolean @default(true)
+
+  level Level @relation(fields: [levelId], references: [id])
+}

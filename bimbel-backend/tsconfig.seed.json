@@ -1,0 +1,11 @@
+// PRIVATE_FIXED/bimbel-backend/tsconfig.seed.json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["prisma/seed.ts", "prisma/seeds/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

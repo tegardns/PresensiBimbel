@@ -1,5 +1,5 @@
+// PRIVATE_FIXED/src/app/data/authData.ts
 // Authentication Data - Sinkron dengan Akun Tutor & Admin
-
 export interface AdminAccount {
   id: string;
   username: string;

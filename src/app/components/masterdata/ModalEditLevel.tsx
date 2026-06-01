@@ -1,39 +1,64 @@
-import { X, Save } from 'lucide-react';
-
-interface Level {
-  id: string;
-  nama: string;
-  hargaJual: number;
-  durasiMenit: number;
-  potonganAdmin: number;
-  color: string;
-  icon: string;
-}
+// PRIVATE_FIXED/src/app/components/masterdata/ModalEditLevel.tsx
+import { useState } from "react";
+import { X, Save } from "lucide-react";
+import api from "../../../services/api";
+import type { Level } from "./DataLevel";
 
 interface ModalEditLevelProps {
   isOpen: boolean;
   onClose: () => void;
   level: Level | null;
+  onUpdated: () => void;
 }
 
-export function ModalEditLevel({ isOpen, onClose, level }: ModalEditLevelProps) {
+export function ModalEditLevel({
+  isOpen,
+  onClose,
+  level,
+  onUpdated,
+}: ModalEditLevelProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   if (!isOpen || !level) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const data = Object.fromEntries(formData);
-    alert(`Update Level ${level.nama} berhasil!\n\nData: ${JSON.stringify(data, null, 2)}`);
-    onClose();
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+
+      const formData = new FormData(e.target as HTMLFormElement);
+
+      const payload = {
+        hargaJual: Number(formData.get("hargaJual")),
+        durasiMenit: Number(formData.get("durasiMenit")),
+        potonganAdmin: Number(formData.get("potonganAdmin")),
+      };
+
+      await api.put(`/levels/${level.id}`, payload);
+
+      onUpdated();
+      onClose();
+    } catch (error) {
+      console.error("Gagal update level:", error);
+      setErrorMessage("Gagal menyimpan perubahan level.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
       minimumFractionDigits: 0,
     }).format(amount);
   };
+
+  const tutorFee = level.hargaJual * ((100 - level.potonganAdmin) / 100);
+  const adminFee = level.hargaJual * (level.potonganAdmin / 100);
 
   return (
     <div
@@ -46,12 +71,14 @@ export function ModalEditLevel({ isOpen, onClose, level }: ModalEditLevelProps) 
       >
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-xl">Edit Harga Level {level.nama}</h2>
+            <h2 className="text-xl">Edit Harga Level {level.name}</h2>
             <p className="text-sm text-gray-500 mt-1">{level.id}</p>
           </div>
+
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            type="button"
           >
             <X className="w-6 h-6" />
           </button>
@@ -60,8 +87,14 @@ export function ModalEditLevel({ isOpen, onClose, level }: ModalEditLevelProps) 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="p-4 bg-gray-50 rounded-lg text-center">
             <span className="text-6xl">{level.icon}</span>
-            <p className="text-lg font-medium mt-2">{level.nama}</p>
+            <p className="text-lg font-medium mt-2">{level.name}</p>
           </div>
+
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-700">{errorMessage}</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm text-gray-600 mb-2">
@@ -77,7 +110,7 @@ export function ModalEditLevel({ isOpen, onClose, level }: ModalEditLevelProps) 
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Harga per sesi untuk level {level.nama}
+              Harga per sesi untuk level {level.name}
             </p>
           </div>
 
@@ -113,11 +146,10 @@ export function ModalEditLevel({ isOpen, onClose, level }: ModalEditLevelProps) 
               min="0"
               max="100"
               step="1"
-              disabled
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Persentase potongan untuk admin (default 10%)
+              Persentase potongan untuk admin
             </p>
           </div>
 
@@ -125,13 +157,14 @@ export function ModalEditLevel({ isOpen, onClose, level }: ModalEditLevelProps) 
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-blue-900">Fee Tutor:</p>
               <p className="font-bold text-blue-600">
-                {formatRupiah(level.hargaJual * 0.9)}
+                {formatRupiah(tutorFee)}
               </p>
             </div>
+
             <div className="flex items-center justify-between">
               <p className="text-sm text-blue-900">Pendapatan Admin:</p>
               <p className="font-bold text-blue-600">
-                {formatRupiah(level.hargaJual * 0.1)}
+                {formatRupiah(adminFee)}
               </p>
             </div>
           </div>
@@ -140,16 +173,19 @@ export function ModalEditLevel({ isOpen, onClose, level }: ModalEditLevelProps) 
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 px-6 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60"
             >
               Batal
             </button>
+
             <button
               type="submit"
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               <Save className="w-5 h-5" />
-              Simpan Perubahan
+              {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
           </div>
         </form>

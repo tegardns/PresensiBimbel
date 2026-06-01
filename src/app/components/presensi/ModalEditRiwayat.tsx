@@ -1,3 +1,4 @@
+// PRIVATE_FIXED/src/app/components/presensi/ModalEditRiwayat.tsx
 import { X, Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -188,11 +189,10 @@ export function ModalEditRiwayat({ isOpen, onClose, presensi, onSave }: ModalEdi
                     type="button"
                     onClick={() => !isLocked && handleDurasiChange(dur)}
                     disabled={isLocked}
-                    className={`py-3 px-4 rounded-lg border-2 transition-all disabled:cursor-not-allowed ${
-                      formData.durasi === dur
+                    className={`py-3 px-4 rounded-lg border-2 transition-all disabled:cursor-not-allowed ${formData.durasi === dur
                         ? 'border-blue-600 bg-blue-50 text-blue-600 font-medium'
                         : 'border-gray-200 hover:border-blue-300'
-                    } ${isLocked ? 'opacity-50' : ''}`}
+                      } ${isLocked ? 'opacity-50' : ''}`}
                   >
                     {dur}
                   </button>

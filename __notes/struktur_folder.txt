@@ -1,0 +1,208 @@
+Struktur folder PRIVATE_FIXED
+📁 --> folder
+📄 --> file
+
+📁 PRIVATE_FIXED
+|- 📁 __notes
+   |- 📄 struktur_folder.txt
+|- 📁 bimbel-backend
+   |- 📁 dist
+      |- 📁 config
+         |- 📄 prisma.js
+      |- 📁 middlewares
+         |- 📄 auth.middleware.js
+         |- 📄 role.middleware.js
+      |- 📁 modules
+         |- 📁 admin
+            |- 📄 admin.route.js
+         |- 📁 auth
+            |- 📄 auth.controller.js
+            |- 📄 auth.route.js
+            |- 📄 auth.service.js
+         |- 📁 tutor
+            |- 📄 tutor.route.js
+      |- 📄 seed-tutor.js
+      |- 📄 seed.js
+      |- 📄 server.js
+   |- 📁 node_modules
+   |- 📁 prisma
+      |- 📁 migrations
+      |- 📁 seeds
+         |- 📄 schema.prisma
+      |- 📄 schema.prisma
+      |- 📄 seed.ts
+      |- 📄 seed2.ts
+      |- 📄 seed3.ts
+   |- 📁 src
+      |- 📁 config
+         |- 📄 prisma.ts
+      |- 📁 controllers
+         |- 📄 attendance.controller.ts
+         |- 📄 auth.controller.ts
+         |- 📄 finance.controller.ts
+         |- 📄 level.controller.ts
+         |- 📄 student.controller.ts
+         |- 📄 subject.controller.ts
+         |- 📄 tutor.controller.ts
+      |- 📁 lib
+         |- 📄 prisma.ts
+      |- 📁 middlewares
+         |- 📄 auth.middleware.ts
+         |- 📄 role.middleware.ts
+      |- 📁 modules
+         |- 📁 admin
+            |- 📄 admin.route.ts
+         |- 📁 auth
+            |- 📄 auth.controller.ts
+            |- 📄 auth.route.ts
+            |- 📄 auth.service.ts
+         |- 📁 tutor
+            |- 📄 tutor.route.ts
+      |- 📁 routes
+         |- 📄 attendance.routes.ts
+         |- 📄 auth.routes.ts
+         |- 📄 finance.routes.ts
+         |- 📄 level.routes.ts
+         |- 📄 student.routes.ts
+         |- 📄 subject.routes.ts
+         |- 📄 tutor.routes.ts
+      |- 📁 types
+         |- 📄 tutor.type.ts
+      |- 📄 app.ts
+      |- 📄 server.ts
+   |- 📄 .env
+   |- 📄 .gitignore
+   |- 📄 backup.sql
+   |- 📄 package-lock.json
+   |- 📄 package.json
+   |- 📄 schema.sql
+   |- 📄 tsconfig.json
+|- 📁 dist
+|- 📁 guidelines
+|- 📁 node_modules
+|- 📁 src
+   |- 📁 app
+      |- 📁 components
+         |- 📁 figma
+            |- 📄 ImageWithFallback.tsx
+         |- 📁 keuangan
+            |- 📄 LaporanPendapatan.tsx
+            |- 📄 PayoutMingguan.tsx
+            |- 📄 RiwayatPembayaran.tsx
+         |- 📁 masterdata
+            |- 📄 DataKeuangan.tsx
+            |- 📄 DataLevel.tsx
+            |- 📄 DataMapel.tsx
+            |- 📄 DataPresensi.tsx
+            |- 📄 DataSiswa.tsx
+            |- 📄 DataTutor.tsx
+            |- 📄 ModalEditLevel.tsx
+            |- 📄 ModalMapel.tsx
+            |- 📄 ModalSiswa.tsx
+            |- 📄 ModalTutor.tsx
+         |- 📁 pengaturan
+            |- 📄 KeamananAkun.tsx
+            |- 📄 KonfigurasiSistem.tsx
+            |- 📄 ProfilInstansi.tsx
+         |- 📁 presensi
+            |- 📄 AntreanPersetujuan.tsx
+            |- 📄 ModaEditPresensi.tsx
+            |- 📄 ModalEditRiwayat.tsx
+            |- 📄 RekapJamMengajar.tsx
+            |- 📄 RiwayatPresensi.tsx
+         |- 📁 ui
+            |- 📄 accordion.tsx
+            |- 📄 alert-dialog.tsx
+            |- 📄 alert.tsx
+            |- 📄 aspect-ratio.tsx
+            |- 📄 avatar.tsx
+            |- 📄 badge.tsx
+            |- 📄 breadcrumb.tsx
+            |- 📄 button.tsx
+            |- 📄 calendar.tsx
+            |- 📄 card.tsx
+            |- 📄 carousel.tsx
+            |- 📄 chart.tsx
+            |- 📄 checkbox.tsx
+            |- 📄 collapsible.tsx
+            |- 📄 command.tsx
+            |- 📄 context-menu.tsx
+            |- 📄 dialog.tsx
+            |- 📄 drawer.tsx
+            |- 📄 dropdown-menu.tsx
+            |- 📄 form.tsx
+            |- 📄 hover-card.tsx
+            |- 📄 input-card.tsx
+            |- 📄 input-otp.tsx
+            |- 📄 input.tsx
+            |- 📄 label.tsx
+            |- 📄 menubar.tsx
+            |- 📄 navigation-menu.tsx
+            |- 📄 pagination.tsx
+            |- 📄 popover.tsx
+            |- 📄 progress.tsx
+            |- 📄 radio-group.tsx
+            |- 📄 resizable.tsx
+            |- 📄 scroll-area.tsx
+            |- 📄 select.tsx
+            |- 📄 separator.tsx
+            |- 📄 sheet.tsx
+            |- 📄 sidebar.tsx
+            |- 📄 skeleton.tsx
+            |- 📄 slider.tsx
+            |- 📄 sonner.tsx
+            |- 📄 switch.tsx
+            |- 📄 table.tsx
+            |- 📄 tabs.tsx
+            |- 📄 textarea.tsx
+            |- 📄 toggle-group.tsx
+            |- 📄 toggle.tsx
+            |- 📄 tooltip.tsx
+            |- 📄 use-mobile.ts
+            |- 📄 utils.ts
+         |- 📄 ActivityFeed.tsx
+         |- 📄 Dashboard.tsx
+         |- 📄 Keuangan.tsx
+         |- 📄 Login.tsx
+         |- 📄 MasterData.tsx
+         |- 📄 Pengaturan.tsx
+         |- 📄 Presensi.tsx
+         |- 📄 Sidebar.tsx
+         |- 📄 StatCard.tsx
+      |- 📁 components_tutor
+         |- 📁 figma
+            |- 📄 ImageWithFallback.tsx
+         |- 📁 ui (aku tidak ingin tulis dalamnya, karena isi foldernya sama dengan src/app/components/ui/)
+         |- 📄 AddAttendancePage.tsx
+         |- 📄 HistoryPage.tsx
+         |- 📄 HomePage.tsx
+         |- 📄 SettingsPage.tsx
+      |- 📁 data 
+         |- 📄 authData.ts
+         |- 📄 mockData.ts
+         |- 📄 README.md
+      |- 📄 App.tsx
+      |- 📄 TutorDashboard.tsx 
+   |- 📁 pages
+   |- 📁 services
+      |- 📄 api.ts
+   |- 📁 styles
+      |- 📄 fonts.css
+      |- 📄 index.css
+      |- 📄 tailwind.css
+      |- 📄 theme.css
+   |- 📁 utils
+      |- 📄 auth.js
+   |- 📄 app.tsx
+   |- 📄 main.tsx
+|- 📄 ATTRIBUTIONS.md
+|- 📄 default_shacdn_theme.css
+|- 📄 index.html
+|- 📄 MERGE_NOTES.txt
+|- 📄 package-lock.json
+|- 📄 package.json
+|- 📄 pnpm-workspace.yaml
+|- 📄 postcss.config.mjs
+|- 📄 README.md
+|- 📄 TODO.md
+|- 📄 vite.config.ts

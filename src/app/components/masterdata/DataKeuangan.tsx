@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Search, Eye, Printer, CheckCircle, X } from 'lucide-react';
+// PRIVATE_FIXED/src/app/components/masterdata/DataKeuangan.tsx
+import { useEffect, useState } from "react";
+import { Search, Eye, Printer, CheckCircle, X } from "lucide-react";
 
 interface SesiDetail {
   id: string;
@@ -18,118 +19,120 @@ interface Keuangan {
   noRekening: string;
   totalNominal: number;
   tanggalPayout: string;
-  status: 'diproses' | 'sudah-payout';
+  status: "diproses" | "sudah-payout";
   sesiList: SesiDetail[];
 }
-
-const mockKeuangan: Keuangan[] = [
-  {
-    id: 'TRX-20260420-W3',
-    tutorId: 'TUT-001',
-    tutorNama: 'Mellysa',
-    namaBank: 'BCA',
-    noRekening: '1234567890',
-    totalNominal: 384000,
-    tanggalPayout: '2026-04-20',
-    status: 'diproses',
-    sesiList: [
-      { id: 'SES-001', siswaNama: 'Ahmad Rizki', mapelNama: 'Matematika', tanggal: '2026-04-14', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-002', siswaNama: 'Budi Santoso', mapelNama: 'Fisika', tanggal: '2026-04-15', durasi: 120, feeBersih: 64000 },
-      { id: 'SES-003', siswaNama: 'Ahmad Rizki', mapelNama: 'Matematika', tanggal: '2026-04-16', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-004', siswaNama: 'Dedi Prasetyo', mapelNama: 'Fisika', tanggal: '2026-04-17', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-005', siswaNama: 'Ahmad Rizki', mapelNama: 'Matematika', tanggal: '2026-04-18', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-006', siswaNama: 'Budi Santoso', mapelNama: 'Fisika', tanggal: '2026-04-19', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-007', siswaNama: 'Dedi Prasetyo', mapelNama: 'Fisika', tanggal: '2026-04-19', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-008', siswaNama: 'Ahmad Rizki', mapelNama: 'Matematika', tanggal: '2026-04-20', durasi: 60, feeBersih: 32000 },
-    ],
-  },
-  {
-    id: 'TRX-20260413-W2',
-    tutorId: 'TUT-001',
-    tutorNama: 'Mellysa',
-    namaBank: 'BCA',
-    noRekening: '1234567890',
-    totalNominal: 256000,
-    tanggalPayout: '2026-04-13',
-    status: 'sudah-payout',
-    sesiList: [
-      { id: 'SES-009', siswaNama: 'Ahmad Rizki', mapelNama: 'Matematika', tanggal: '2026-04-07', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-010', siswaNama: 'Budi Santoso', mapelNama: 'Fisika', tanggal: '2026-04-08', durasi: 120, feeBersih: 64000 },
-      { id: 'SES-011', siswaNama: 'Ahmad Rizki', mapelNama: 'Matematika', tanggal: '2026-04-10', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-012', siswaNama: 'Dedi Prasetyo', mapelNama: 'Fisika', tanggal: '2026-04-12', durasi: 90, feeBersih: 48000 },
-      { id: 'SES-013', siswaNama: 'Ahmad Rizki', mapelNama: 'Matematika', tanggal: '2026-04-13', durasi: 90, feeBersih: 48000 },
-    ],
-  },
-  {
-    id: 'TRX-20260420-W3-B',
-    tutorId: 'TUT-002',
-    tutorNama: 'Budi Santoso',
-    namaBank: 'Mandiri',
-    noRekening: '0987654321',
-    totalNominal: 320000,
-    tanggalPayout: '2026-04-20',
-    status: 'diproses',
-    sesiList: [
-      { id: 'SES-014', siswaNama: 'Eka Putri', mapelNama: 'Kimia', tanggal: '2026-04-14', durasi: 120, feeBersih: 64000 },
-      { id: 'SES-015', siswaNama: 'Fahmi Rahman', mapelNama: 'Fisika', tanggal: '2026-04-15', durasi: 120, feeBersih: 64000 },
-      { id: 'SES-016', siswaNama: 'Eka Putri', mapelNama: 'Kimia', tanggal: '2026-04-17', durasi: 120, feeBersih: 64000 },
-      { id: 'SES-017', siswaNama: 'Fahmi Rahman', mapelNama: 'Fisika', tanggal: '2026-04-18', durasi: 120, feeBersih: 64000 },
-      { id: 'SES-018', siswaNama: 'Eka Putri', mapelNama: 'Kimia', tanggal: '2026-04-19', durasi: 120, feeBersih: 64000 },
-    ],
-  },
-];
 
 interface DataKeuanganProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
 
-export function DataKeuangan({ searchQuery, setSearchQuery }: DataKeuanganProps) {
-  const [statusFilter, setStatusFilter] = useState<'all' | 'diproses' | 'sudah-payout'>('all');
-  const [selectedTransaction, setSelectedTransaction] = useState<Keuangan | null>(null);
-  const [selectedForUpdate, setSelectedForUpdate] = useState<string[]>([]);
+export function DataKeuangan({
+  searchQuery,
+  setSearchQuery,
+}: DataKeuanganProps) {
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "diproses" | "sudah-payout"
+  >("all");
 
-  const filteredKeuangan = mockKeuangan.filter((keuangan) => {
-    const matchesSearch = keuangan.tutorNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         keuangan.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || keuangan.status === statusFilter;
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Keuangan | null>(null);
+
+  const [selectedForUpdate, setSelectedForUpdate] = useState<string[]>([]);
+  const [transactions, setTransactions] = useState<Keuangan[]>([]);
+
+  useEffect(() => {
+    fetchFinance();
+  }, []);
+
+  const fetchFinance = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/api/finance");
+      const data = await res.json();
+      setTransactions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.log("Gagal ambil data keuangan");
+    }
+  };
+
+  const filteredKeuangan = transactions.filter((keuangan) => {
+    const matchesSearch =
+      keuangan.tutorNama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      keuangan.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "all" || keuangan.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
   const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
       minimumFractionDigits: 0,
     }).format(amount);
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     });
   };
 
   const handleSelectForUpdate = (id: string) => {
     if (selectedForUpdate.includes(id)) {
-      setSelectedForUpdate(selectedForUpdate.filter(i => i !== id));
+      setSelectedForUpdate(selectedForUpdate.filter((i) => i !== id));
     } else {
       setSelectedForUpdate([...selectedForUpdate, id]);
     }
   };
 
-  const handleBulkUpdateStatus = () => {
+  const handleBulkUpdateStatus = async () => {
     if (selectedForUpdate.length === 0) {
-      alert('Pilih minimal 1 transaksi untuk diupdate');
+      alert("Pilih minimal 1 transaksi");
       return;
     }
-    alert(`${selectedForUpdate.length} transaksi akan diupdate statusnya menjadi "Sudah Payout"`);
-    setSelectedForUpdate([]);
+
+    try {
+      await fetch("http://localhost:4000/api/finance/payout/bulk", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ids: selectedForUpdate,
+        }),
+      });
+
+      alert("Status payout berhasil diupdate");
+      setSelectedForUpdate([]);
+      fetchFinance();
+    } catch (error) {
+      alert("Gagal update status");
+    }
   };
 
-  const diprosesCount = filteredKeuangan.filter(k => k.status === 'diproses').length;
+  const updateSingleStatus = async (id: string) => {
+    try {
+      await fetch(`http://localhost:4000/api/finance/${id}/payout`, {
+        method: "PATCH",
+      });
+
+      fetchFinance();
+      setSelectedTransaction(null);
+    } catch (error) {
+      alert("Gagal update status");
+    }
+  };
+
+  const diprosesCount = filteredKeuangan.filter(
+    (k) => k.status === "diproses",
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -149,7 +152,7 @@ export function DataKeuangan({ searchQuery, setSearchQuery }: DataKeuanganProps)
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2.5 border border-gray-200 rounded-lg bg-white"
           >
             <option value="all">Semua Status</option>
             <option value="diproses">Diproses</option>
@@ -160,7 +163,7 @@ export function DataKeuangan({ searchQuery, setSearchQuery }: DataKeuanganProps)
         {selectedForUpdate.length > 0 && (
           <button
             onClick={handleBulkUpdateStatus}
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg"
           >
             <CheckCircle className="w-5 h-5" />
             Update Status ({selectedForUpdate.length})
@@ -170,18 +173,9 @@ export function DataKeuangan({ searchQuery, setSearchQuery }: DataKeuanganProps)
 
       {diprosesCount > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-orange-900">
-                <strong>{diprosesCount} transaksi</strong> sedang dalam status <strong>Diproses</strong> dan menunggu untuk diselesaikan
-              </p>
-            </div>
-          </div>
+          <p className="text-sm text-orange-900">
+            <strong>{diprosesCount} transaksi</strong> sedang menunggu payout
+          </p>
         </div>
       )}
 
@@ -193,106 +187,124 @@ export function DataKeuangan({ searchQuery, setSearchQuery }: DataKeuanganProps)
                 <th className="px-6 py-4 w-12">
                   <input
                     type="checkbox"
+                    checked={
+                      selectedForUpdate.length > 0 &&
+                      selectedForUpdate.length ===
+                      filteredKeuangan.filter((k) => k.status === "diproses")
+                        .length
+                    }
                     onChange={(e) => {
                       if (e.target.checked) {
-                        const diprosesIds = filteredKeuangan
-                          .filter(k => k.status === 'diproses')
-                          .map(k => k.id);
-                        setSelectedForUpdate(diprosesIds);
+                        const ids = filteredKeuangan
+                          .filter((k) => k.status === "diproses")
+                          .map((k) => k.id);
+
+                        setSelectedForUpdate(ids);
                       } else {
                         setSelectedForUpdate([]);
                       }
                     }}
-                    checked={selectedForUpdate.length > 0 && selectedForUpdate.length === filteredKeuangan.filter(k => k.status === 'diproses').length}
-                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                   />
                 </th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">ID Transaksi</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Nama Tutor</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Rekening</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Total Nominal</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Tanggal Payout</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Jumlah Sesi</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Status</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Aksi</th>
+
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  ID Transaksi
+                </th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Nama Tutor
+                </th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Rekening
+                </th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Total Nominal
+                </th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Tanggal Payout
+                </th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Jumlah Sesi
+                </th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Status
+                </th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">
+                  Aksi
+                </th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-gray-100">
               {filteredKeuangan.map((keuangan) => (
-                <tr key={keuangan.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={keuangan.id}>
                   <td className="px-6 py-4">
-                    {keuangan.status === 'diproses' && (
+                    {keuangan.status === "diproses" && (
                       <input
                         type="checkbox"
                         checked={selectedForUpdate.includes(keuangan.id)}
                         onChange={() => handleSelectForUpdate(keuangan.id)}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                       />
                     )}
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-gray-500 font-mono">{keuangan.id}</span>
+
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {keuangan.id}
                   </td>
+
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm">
-                        {keuangan.tutorNama.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium">{keuangan.tutorNama}</p>
-                        <p className="text-xs text-gray-500">{keuangan.tutorId}</p>
-                      </div>
-                    </div>
+                    <p className="font-medium">{keuangan.tutorNama}</p>
+                    <p className="text-xs text-gray-500">{keuangan.tutorId}</p>
                   </td>
+
                   <td className="px-6 py-4">
-                    <div>
-                      <p className="text-sm font-medium">{keuangan.namaBank}</p>
-                      <p className="text-xs text-gray-500 font-mono">{keuangan.noRekening}</p>
-                    </div>
+                    <p>{keuangan.namaBank}</p>
+                    <p className="text-xs text-gray-500">
+                      {keuangan.noRekening}
+                    </p>
                   </td>
+
+                  <td className="px-6 py-4 font-semibold text-green-600">
+                    {formatRupiah(keuangan.totalNominal)}
+                  </td>
+
                   <td className="px-6 py-4">
-                    <span className="font-semibold text-green-600">
-                      {formatRupiah(keuangan.totalNominal)}
-                    </span>
+                    {formatDate(keuangan.tanggalPayout)}
                   </td>
+
                   <td className="px-6 py-4">
-                    <span className="text-sm">{formatDate(keuangan.tanggalPayout)}</span>
+                    {keuangan.sesiList?.length || 0} sesi
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-gray-600">{keuangan.sesiList.length} sesi</span>
-                  </td>
+
                   <td className="px-6 py-4">
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs ${
-                        keuangan.status === 'diproses'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-green-100 text-green-700'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs ${keuangan.status === "diproses"
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-green-100 text-green-700"
+                        }`}
                     >
-                      {keuangan.status === 'diproses' ? 'Diproses' : 'Sudah Payout'}
+                      {keuangan.status === "diproses"
+                        ? "Diproses"
+                        : "Sudah Payout"}
                     </span>
                   </td>
+
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedTransaction(keuangan)}
-                        className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                        title="Lihat Detail Sesi"
+                        className="p-2 hover:bg-blue-100 rounded-lg"
                       >
                         <Eye className="w-4 h-4 text-blue-600" />
                       </button>
-                      <button
-                        onClick={() => alert(`Cetak bukti untuk ${keuangan.id}`)}
-                        className="p-2 hover:bg-purple-100 rounded-lg transition-colors"
-                        title="Cetak Bukti"
-                      >
+
+                      <button className="p-2 hover:bg-purple-100 rounded-lg">
                         <Printer className="w-4 h-4 text-purple-600" />
                       </button>
-                      {keuangan.status === 'diproses' && (
+
+                      {keuangan.status === "diproses" && (
                         <button
-                          onClick={() => alert(`Update status ${keuangan.id} menjadi Sudah Payout`)}
-                          className="p-2 hover:bg-green-100 rounded-lg transition-colors"
-                          title="Tandai Sudah Payout"
+                          onClick={() => updateSingleStatus(keuangan.id)}
+                          className="p-2 hover:bg-green-100 rounded-lg"
                         >
                           <CheckCircle className="w-4 h-4 text-green-600" />
                         </button>
@@ -321,117 +333,79 @@ export function DataKeuangan({ searchQuery, setSearchQuery }: DataKeuanganProps)
             className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+            <div className="p-6 border-b flex items-center justify-between">
               <div>
                 <h3 className="text-xl">Detail Transaksi</h3>
-                <p className="text-sm text-gray-500 mt-1">{selectedTransaction.id}</p>
+                <p className="text-sm text-gray-500">
+                  {selectedTransaction.id}
+                </p>
               </div>
-              <button
-                onClick={() => setSelectedTransaction(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
+
+              <button onClick={() => setSelectedTransaction(null)}>
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6 overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Tutor</p>
-                  <p className="font-medium">{selectedTransaction.tutorNama}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{selectedTransaction.tutorId}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Rekening Tujuan</p>
-                  <p className="font-medium">{selectedTransaction.namaBank}</p>
-                  <p className="text-xs text-gray-500 font-mono mt-0.5">{selectedTransaction.noRekening}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Total Nominal</p>
-                  <p className="font-bold text-green-600">{formatRupiah(selectedTransaction.totalNominal)}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Tanggal Payout</p>
-                  <p className="font-medium">{formatDate(selectedTransaction.tanggalPayout)}</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Jumlah Sesi</p>
-                  <p className="font-medium">{selectedTransaction.sesiList.length} sesi</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Status</p>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs ${
-                      selectedTransaction.status === 'diproses'
-                        ? 'bg-orange-100 text-orange-700'
-                        : 'bg-green-100 text-green-700'
-                    }`}
-                  >
-                    {selectedTransaction.status === 'diproses' ? 'Diproses' : 'Sudah Payout'}
-                  </span>
-                </div>
-              </div>
-
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
               <div>
-                <h4 className="font-medium mb-3">Rincian Sesi ({selectedTransaction.sesiList.length})</h4>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <h4 className="font-medium mb-3">Rincian Sesi</h4>
+
+                <div className="border rounded-lg overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-gray-50 border-b">
                       <tr>
-                        <th className="text-left px-4 py-3 text-xs text-gray-600">ID Sesi</th>
-                        <th className="text-left px-4 py-3 text-xs text-gray-600">Tanggal</th>
-                        <th className="text-left px-4 py-3 text-xs text-gray-600">Siswa</th>
-                        <th className="text-left px-4 py-3 text-xs text-gray-600">Mata Pelajaran</th>
-                        <th className="text-left px-4 py-3 text-xs text-gray-600">Durasi</th>
-                        <th className="text-right px-4 py-3 text-xs text-gray-600">Fee Bersih</th>
+                        <th className="text-left px-4 py-3 text-xs">ID</th>
+                        <th className="text-left px-4 py-3 text-xs">Tanggal</th>
+                        <th className="text-left px-4 py-3 text-xs">Siswa</th>
+                        <th className="text-left px-4 py-3 text-xs">Mapel</th>
+                        <th className="text-left px-4 py-3 text-xs">Durasi</th>
+                        <th className="text-right px-4 py-3 text-xs">Fee</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedTransaction.sesiList.map((sesi) => (
-                        <tr key={sesi.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-500">{sesi.id}</td>
-                          <td className="px-4 py-3 text-sm">{formatDate(sesi.tanggal)}</td>
-                          <td className="px-4 py-3 text-sm">{sesi.siswaNama}</td>
-                          <td className="px-4 py-3 text-sm">{sesi.mapelNama}</td>
-                          <td className="px-4 py-3 text-sm">{sesi.durasi} mnt</td>
-                          <td className="px-4 py-3 text-sm text-right font-medium text-green-600">
+
+                    <tbody>
+                      {(selectedTransaction.sesiList || []).map((sesi) => (
+                        <tr key={sesi.id}>
+                          <td className="px-4 py-3 text-sm">{sesi.id}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {formatDate(sesi.tanggal)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {sesi.siswaNama}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {sesi.mapelNama}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {sesi.durasi} mnt
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
                             {formatRupiah(sesi.feeBersih)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-gray-50 border-t-2 border-gray-300">
-                      <tr>
-                        <td colSpan={5} className="px-4 py-3 text-sm font-medium text-right">
-                          Total
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-right text-green-600">
-                          {formatRupiah(selectedTransaction.totalNominal)}
-                        </td>
-                      </tr>
-                    </tfoot>
                   </table>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-200 flex gap-3">
-              <button
-                onClick={() => alert(`Cetak bukti untuk ${selectedTransaction.id}`)}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <Printer className="w-5 h-5" />
-                Cetak Bukti
-              </button>
-              {selectedTransaction.status === 'diproses' && (
+            <div className="p-6 border-t flex gap-3">
+              {selectedTransaction.status === "diproses" && (
                 <button
-                  onClick={() => alert(`Update status ${selectedTransaction.id} menjadi Sudah Payout`)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  onClick={() => updateSingleStatus(selectedTransaction.id)}
+                  className="flex-1 py-2.5 bg-green-600 text-white rounded-lg"
                 >
-                  <CheckCircle className="w-5 h-5" />
                   Tandai Sudah Payout
                 </button>
               )}
+
+              <button
+                onClick={() => setSelectedTransaction(null)}
+                className="flex-1 py-2.5 bg-gray-100 rounded-lg"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>
