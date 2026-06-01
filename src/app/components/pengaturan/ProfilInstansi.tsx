@@ -2,14 +2,28 @@ import { useState } from 'react';
 import { Upload, Building2, Phone, MapPin } from 'lucide-react';
 
 interface ProfilInstansiProps {
+  namaBimbel: string;
+  setNamaBimbel: (val: string) => void;
+  whatsapp: string;
+  setWhatsapp: (val: string) => void;
+  alamat: string;
+  setAlamat: (val: string) => void;
+  logoPreview: string | null;
+  setLogoPreview: (val: string | null) => void;
   onChangeDetected: () => void;
 }
 
-export function ProfilInstansi({ onChangeDetected }: ProfilInstansiProps) {
-  const [namaBimbel, setNamaBimbel] = useState('BimbelMelly Pusat');
-  const [whatsapp, setWhatsapp] = useState('+62 812-3456-7890');
-  const [alamat, setAlamat] = useState('Jl. Pendidikan No. 123, Jakarta Selatan 12345');
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+export function ProfilInstansi({
+  namaBimbel,
+  setNamaBimbel,
+  whatsapp,
+  setWhatsapp,
+  alamat,
+  setAlamat,
+  logoPreview,
+  setLogoPreview,
+  onChangeDetected,
+}: ProfilInstansiProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -51,6 +65,7 @@ export function ProfilInstansi({ onChangeDetected }: ProfilInstansiProps) {
       reader.readAsDataURL(file);
     }
   };
+
 
   return (
     <div className="space-y-6">

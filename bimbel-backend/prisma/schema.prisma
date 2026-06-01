@@ -129,3 +129,15 @@ model Subject {
 
   level Level @relation(fields: [levelId], references: [id])
 }
+
+model SystemSetting {
+  id            String  @id @default("system")
+  namaBimbel    String  @default("BimbelMelly Pusat")
+  whatsapp      String  @default("+62 812-3456-7890")
+  alamat        String  @default("Jl. Pendidikan No. 123, Jakarta Selatan 12345")
+  logoUrl       String?
+  komisiAdmin   Float   @default(10)
+  infoPayout    String  @default("Transfer dilakukan setiap hari Minggu pukul 18:00 WIB. Pastikan data rekening Anda sudah lengkap dan benar.")
+  maintenance   Boolean @default(false)
+}
+

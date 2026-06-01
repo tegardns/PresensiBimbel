@@ -1,13 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ProfilInstansi } from './pengaturan/ProfilInstansi';
 import { KeamananAkun } from './pengaturan/KeamananAkun';
 import { KonfigurasiSistem } from './pengaturan/KonfigurasiSistem';
 import { Database, Save } from 'lucide-react';
+import api from '../../services/api';
 
 export function Pengaturan() {
   const [activeTab, setActiveTab] = useState('profil');
   const [hasChanges, setHasChanges] = useState(false);
   const [lastBackup] = useState('21 April 2026, 23:45 WIB');
+
+  // Profil Instansi states
+  const [namaBimbel, setNamaBimbel] = useState('BimbelMelly Pusat');
+  const [whatsapp, setWhatsapp] = useState('+62 812-3456-7890');
+  const [alamat, setAlamat] = useState('Jl. Pendidikan No. 123, Jakarta Selatan 12345');
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  // Konfigurasi Sistem states
+  const [komisiAdmin, setKomisiAdmin] = useState(10);
+  const [infoPayout, setInfoPayout] = useState('Transfer dilakukan setiap hari Minggu pukul 18:00 WIB. Pastikan data rekening Anda sudah lengkap dan benar.');
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
 
   const tabs = [
     { id: 'profil', label: 'Profil Instansi', icon: '🏢' },
@@ -15,13 +27,54 @@ export function Pengaturan() {
     { id: 'sistem', label: 'Konfigurasi Sistem', icon: '⚙️' },
   ];
 
-  const handleSaveChanges = () => {
-    alert('Menyimpan perubahan...\n\nSemua pengaturan telah berhasil disimpan.');
-    setHasChanges(false);
+  const fetchSettings = async () => {
+    try {
+      const res = await api.get('/admin/settings');
+      const data = res.data;
+      if (data) {
+        setNamaBimbel(data.namaBimbel || 'BimbelMelly Pusat');
+        setWhatsapp(data.whatsapp || '+62 812-3456-7890');
+        setAlamat(data.alamat || 'Jl. Pendidikan No. 123, Jakarta Selatan 12345');
+        setLogoPreview(data.logoUrl || null);
+        setKomisiAdmin(data.komisiAdmin !== undefined ? data.komisiAdmin : 10);
+        setInfoPayout(data.infoPayout || 'Transfer dilakukan setiap hari Minggu pukul 18:00 WIB. Pastikan data rekening Anda sudah lengkap dan benar.');
+        setMaintenanceMode(!!data.maintenance);
+      }
+    } catch (error) {
+      console.error('Gagal mengambil pengaturan instansi:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleSaveChanges = async () => {
+    try {
+      await api.put('/admin/settings', {
+        namaBimbel,
+        whatsapp,
+        alamat,
+        logoUrl: logoPreview,
+        komisiAdmin,
+        infoPayout,
+        maintenance: maintenanceMode,
+      });
+
+      alert('Berhasil!\n\nSemua pengaturan telah berhasil disimpan ke database.');
+      setHasChanges(false);
+      
+      // Notify sidebar to reload agency info
+      window.dispatchEvent(new Event('settingsChanged'));
+    } catch (error: any) {
+      console.error('Gagal menyimpan pengaturan:', error);
+      alert(error.response?.data?.message || 'Gagal menyimpan pengaturan');
+    }
   };
 
   const handleDiscardChanges = () => {
     if (confirm('Batalkan semua perubahan yang belum disimpan?')) {
+      fetchSettings();
       setHasChanges(false);
     }
   };
@@ -59,11 +112,34 @@ export function Pengaturan() {
         </div>
 
         <div className="flex-1">
-          {activeTab === 'profil' && <ProfilInstansi onChangeDetected={() => setHasChanges(true)} />}
+          {activeTab === 'profil' && (
+            <ProfilInstansi
+              namaBimbel={namaBimbel}
+              setNamaBimbel={setNamaBimbel}
+              whatsapp={whatsapp}
+              setWhatsapp={setWhatsapp}
+              alamat={alamat}
+              setAlamat={setAlamat}
+              logoPreview={logoPreview}
+              setLogoPreview={setLogoPreview}
+              onChangeDetected={() => setHasChanges(true)}
+            />
+          )}
           {activeTab === 'keamanan' && <KeamananAkun />}
-          {activeTab === 'sistem' && <KonfigurasiSistem onChangeDetected={() => setHasChanges(true)} />}
+          {activeTab === 'sistem' && (
+            <KonfigurasiSistem
+              komisiAdmin={komisiAdmin}
+              setKomisiAdmin={setKomisiAdmin}
+              infoPayout={infoPayout}
+              setInfoPayout={setInfoPayout}
+              maintenanceMode={maintenanceMode}
+              setMaintenanceMode={setMaintenanceMode}
+              onChangeDetected={() => setHasChanges(true)}
+            />
+          )}
         </div>
       </div>
+
 
       {hasChanges && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-blue-500 shadow-2xl z-50">

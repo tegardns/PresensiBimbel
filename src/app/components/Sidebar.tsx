@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { UserAccount } from "../data/authData";
+import api from "../../services/api";
 
 interface SidebarProps {
   activeMenu: string;
@@ -28,6 +29,35 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Agency profile visual settings states
+  const [namaBimbel, setNamaBimbel] = useState("BimbelMelly");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  const fetchSidebarSettings = async () => {
+    try {
+      const res = await api.get("/admin/settings");
+      if (res.data) {
+        setNamaBimbel(res.data.namaBimbel || "BimbelMelly");
+        setLogoUrl(res.data.logoUrl || null);
+      }
+    } catch (error) {
+      console.error("Gagal mengambil logo/nama bimbel untuk sidebar:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSidebarSettings();
+
+    const handleSettingsUpdate = () => {
+      fetchSidebarSettings();
+    };
+
+    window.addEventListener("settingsChanged", handleSettingsUpdate);
+    return () => {
+      window.removeEventListener("settingsChanged", handleSettingsUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -66,11 +96,33 @@ export function Sidebar({
     <div
       className={`h-screen bg-white border-r border-gray-200 transition-all duration-300 ${collapsed ? "w-20" : "w-64"} flex flex-col`}
     >
-      <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-        {!collapsed && <h1 className="font-bold text-blue-600">BimbelMelly</h1>}
+      <div className="p-6 border-b border-gray-200 flex items-center justify-between gap-2 overflow-hidden">
+        {!collapsed && (
+          <div className="flex items-center gap-2.5 overflow-hidden flex-1">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain rounded flex-shrink-0" />
+            ) : (
+              <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-600 font-bold text-sm flex-shrink-0">
+                🏢
+              </div>
+            )}
+            <h1 className="font-bold text-blue-600 truncate text-base" title={namaBimbel}>
+              {namaBimbel}
+            </h1>
+          </div>
+        )}
+        {collapsed && (
+          logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain mx-auto rounded flex-shrink-0" />
+          ) : (
+            <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-600 font-bold text-sm mx-auto flex-shrink-0">
+              🏢
+            </div>
+          )
+        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors ml-auto"
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 ml-auto"
         >
           {collapsed ? (
             <ChevronRight className="w-5 h-5" />
@@ -83,6 +135,7 @@ export function Sidebar({
       <nav className="flex-1 p-4 space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
+
           return (
             <button
               key={item.id}

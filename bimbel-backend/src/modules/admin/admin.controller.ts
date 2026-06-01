@@ -221,3 +221,72 @@ export const changeAdminPassword = async (req: any, res: Response) => {
     res.status(500).json({ message: "Gagal mengubah password admin" });
   }
 };
+
+// ==============================
+// GET SYSTEM SETTINGS
+// ==============================
+export const getSettings = async (req: Request, res: Response) => {
+  try {
+    let setting = await prisma.systemSetting.findUnique({
+      where: { id: "system" },
+    });
+
+    if (!setting) {
+      setting = await prisma.systemSetting.create({
+        data: {
+          id: "system",
+          namaBimbel: "BimbelMelly Pusat",
+          whatsapp: "+62 812-3456-7890",
+          alamat: "Jl. Pendidikan No. 123, Jakarta Selatan 12345",
+          logoUrl: null,
+          komisiAdmin: 10,
+          infoPayout: "Transfer dilakukan setiap hari Minggu pukul 18:00 WIB. Pastikan data rekening Anda sudah lengkap dan benar.",
+          maintenance: false,
+        },
+      });
+    }
+
+    res.json(setting);
+  } catch (error) {
+    console.error("GET SETTINGS ERROR:", error);
+    res.status(500).json({ message: "Gagal mengambil pengaturan sistem" });
+  }
+};
+
+// ==============================
+// UPDATE SYSTEM SETTINGS
+// ==============================
+export const updateSettings = async (req: Request, res: Response) => {
+  try {
+    const { namaBimbel, whatsapp, alamat, logoUrl, komisiAdmin, infoPayout, maintenance } = req.body;
+
+    const setting = await prisma.systemSetting.upsert({
+      where: { id: "system" },
+      update: {
+        namaBimbel: namaBimbel !== undefined ? namaBimbel : undefined,
+        whatsapp: whatsapp !== undefined ? whatsapp : undefined,
+        alamat: alamat !== undefined ? alamat : undefined,
+        logoUrl: logoUrl !== undefined ? logoUrl : undefined,
+        komisiAdmin: komisiAdmin !== undefined ? parseFloat(komisiAdmin) : undefined,
+        infoPayout: infoPayout !== undefined ? infoPayout : undefined,
+        maintenance: maintenance !== undefined ? !!maintenance : undefined,
+      },
+      create: {
+        id: "system",
+        namaBimbel: namaBimbel || "BimbelMelly Pusat",
+        whatsapp: whatsapp || "+62 812-3456-7890",
+        alamat: alamat || "Jl. Pendidikan No. 123, Jakarta Selatan 12345",
+        logoUrl: logoUrl || null,
+        komisiAdmin: komisiAdmin !== undefined ? parseFloat(komisiAdmin) : 10,
+        infoPayout: infoPayout || "Transfer dilakukan setiap hari Minggu pukul 18:00 WIB. Pastikan data rekening Anda sudah lengkap dan benar.",
+        maintenance: !!maintenance,
+      },
+    });
+
+    res.json({ message: "Pengaturan berhasil diperbarui", setting });
+  } catch (error) {
+    console.error("UPDATE SETTINGS ERROR:", error);
+    res.status(500).json({ message: "Gagal memperbarui pengaturan sistem" });
+  }
+};
+

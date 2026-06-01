@@ -2,13 +2,25 @@ import { useState } from 'react';
 import { Settings, Percent, Calendar, Database, Trash2, AlertTriangle } from 'lucide-react';
 
 interface KonfigurasiSistemProps {
+  komisiAdmin: number;
+  setKomisiAdmin: (val: number) => void;
+  infoPayout: string;
+  setInfoPayout: (val: string) => void;
+  maintenanceMode: boolean;
+  setMaintenanceMode: (val: boolean) => void;
   onChangeDetected: () => void;
 }
 
-export function KonfigurasiSistem({ onChangeDetected }: KonfigurasiSistemProps) {
-  const [komisiAdmin, setKomisiAdmin] = useState(10);
-  const [infoPayout, setInfoPayout] = useState('Transfer dilakukan setiap hari Minggu pukul 18:00 WIB. Pastikan data rekening Anda sudah lengkap dan benar.');
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
+export function KonfigurasiSistem({
+  komisiAdmin,
+  setKomisiAdmin,
+  infoPayout,
+  setInfoPayout,
+  maintenanceMode,
+  setMaintenanceMode,
+  onChangeDetected,
+}: KonfigurasiSistemProps) {
+
 
   const handleBackupData = () => {
     alert('Memulai backup data...\n\nBackup akan di-download dalam format .xlsx\n\nData yang di-backup:\n- Siswa\n- Tutor\n- Transaksi\n- Presensi\n- Payout\n\nProses backup akan memakan waktu beberapa detik.');

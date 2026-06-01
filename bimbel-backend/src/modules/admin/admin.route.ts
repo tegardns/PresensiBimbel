@@ -8,6 +8,8 @@ import {
   updateTutorAccount,
   deleteTutorAccount,
   changeAdminPassword,
+  getSettings,
+  updateSettings,
 } from "./admin.controller";
 
 const router = Router();
@@ -23,4 +25,8 @@ router.put("/tutor-accounts/:id", verifyToken, allowRoles("admin"), updateTutorA
 router.delete("/tutor-accounts/:id", verifyToken, allowRoles("admin"), deleteTutorAccount);
 router.post("/change-password", verifyToken, allowRoles("admin"), changeAdminPassword);
 
+router.get("/settings", verifyToken, allowRoles("admin"), getSettings);
+router.put("/settings", verifyToken, allowRoles("admin"), updateSettings);
+
 export default router;
+
