@@ -1,40 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserPlus, Key, Edit2, Trash2, Eye, EyeOff, Search } from 'lucide-react';
-import { tutors, getTutorById } from '../../data/mockData';
-import { tutorLoginAccounts } from '../../data/authData';
+import api from '../../../services/api';
 
 interface TutorAccount {
-  id: string;
+  id: string; // Sequential short ID ACC-001, ACC-002, etc.
+  userId: string; // Database User UUID
   tutorId: string;
+  tutorKode: string;
   nama: string;
   email: string;
-  password: string;
   status: 'aktif' | 'nonaktif';
   lastLogin?: string;
 }
 
-// Transform tutors from authData - data akun login yang sinkron
-const mockTutorAccounts: TutorAccount[] = tutorLoginAccounts.map((acc, i) => ({
-  id: acc.id,
-  tutorId: acc.tutorId,
-  nama: acc.nama,
-  email: acc.email,
-  password: '********',
-  status: acc.status,
-  lastLogin: i === 0 ? '2026-04-22 14:30' : i === 1 ? '2026-04-21 16:45' : undefined,
-}));
-
 export function KeamananAkun() {
-  const [tutorAccounts, setTutorAccounts] = useState(mockTutorAccounts);
+  const [tutorAccounts, setTutorAccounts] = useState<TutorAccount[]>([]);
+  const [availableTutors, setAvailableTutors] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<TutorAccount | null>(null);
+  const [viewingAccount, setViewingAccount] = useState<TutorAccount | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   // Form state for add/edit tutor account
   const [selectedTutorId, setSelectedTutorId] = useState('');
-  const [accountPassword, setAccountPassword] = useState('');
+  const [accountPassword, setAccountPassword] = useState('tutor123'); // Default password prefilled
   const [accountStatus, setAccountStatus] = useState<'aktif' | 'nonaktif'>('aktif');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -45,79 +37,87 @@ export function KeamananAkun() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddAccount = () => {
-    if (!selectedTutorId || !accountPassword) {
-      alert('Mohon lengkapi semua data');
+  const fetchAccounts = async () => {
+    try {
+      setIsLoading(true);
+      const [accRes, tutRes] = await Promise.all([
+        api.get("/admin/tutor-accounts"),
+        api.get("/admin/tutors-without-accounts")
+      ]);
+      setTutorAccounts(accRes.data);
+      setAvailableTutors(tutRes.data);
+    } catch (error) {
+      console.error("Gagal mengambil data akun tutor:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  const handleAddAccount = async () => {
+    if (!selectedTutorId) {
+      alert('Mohon pilih tutor');
       return;
     }
 
-    const selectedTutor = getTutorById(selectedTutorId);
-    if (!selectedTutor) return;
+    try {
+      await api.post("/admin/tutor-accounts", {
+        tutorId: selectedTutorId,
+        status: accountStatus,
+        password: accountPassword,
+      });
 
-    const newAccount: TutorAccount = {
-      id: `ACC-${String(tutorAccounts.length + 1).padStart(3, '0')}`,
-      tutorId: selectedTutor.id,
-      nama: selectedTutor.nama,
-      email: selectedTutor.email,
-      password: '********',
-      status: accountStatus,
-    };
-
-    setTutorAccounts([...tutorAccounts, newAccount]);
-    setShowAddModal(false);
-    setSelectedTutorId('');
-    setAccountPassword('');
-    setAccountStatus('aktif');
-    alert(`Akun tutor berhasil ditambahkan!\n\nID: ${newAccount.id}\nNama: ${newAccount.nama}\nEmail: ${newAccount.email}\nStatus: ${newAccount.status}`);
-  };
-
-  const handleEditAccount = () => {
-    if (!editingAccount) {
-      return;
+      alert(`Akun tutor berhasil ditambahkan!\nPassword default: ${accountPassword}`);
+      setShowAddModal(false);
+      setSelectedTutorId('');
+      setAccountPassword('tutor123');
+      setAccountStatus('aktif');
+      fetchAccounts();
+    } catch (error: any) {
+      console.error("Gagal menambahkan akun tutor:", error);
+      alert(error.response?.data?.message || "Gagal menambahkan akun tutor");
     }
+  };
 
-    if (!accountPassword && accountStatus === editingAccount.status) {
-      alert('Tidak ada perubahan yang dilakukan');
-      return;
+  const handleEditAccount = async () => {
+    if (!editingAccount) return;
+
+    try {
+      await api.put(`/admin/tutor-accounts/${editingAccount.userId}`, {
+        status: accountStatus,
+        password: accountPassword !== 'tutor123' && accountPassword ? accountPassword : undefined,
+      });
+
+      alert(`Akun ${editingAccount.nama} berhasil diperbarui!`);
+      setShowEditModal(false);
+      setEditingAccount(null);
+      setAccountPassword('tutor123');
+      fetchAccounts();
+    } catch (error: any) {
+      console.error("Gagal mengupdate akun tutor:", error);
+      alert(error.response?.data?.message || "Gagal memperbarui akun tutor");
     }
-
-    setTutorAccounts(tutorAccounts.map(acc =>
-      acc.id === editingAccount.id ? { ...acc, password: accountPassword ? '********' : acc.password, status: accountStatus } : acc
-    ));
-    setShowEditModal(false);
-    setEditingAccount(null);
-    setAccountPassword('');
-
-    const changes = [];
-    if (accountPassword) changes.push('Password diupdate');
-    if (accountStatus !== editingAccount.status) changes.push(`Status diubah menjadi ${accountStatus}`);
-
-    alert(`Akun ${editingAccount.nama} berhasil diupdate!\n\n${changes.join('\n')}`);
   };
 
-  // Filter accounts by search query
-  const filteredAccounts = tutorAccounts.filter(acc =>
-    acc.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    acc.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    acc.tutorId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleEditClick = (account: TutorAccount) => {
-    setEditingAccount(account);
-    setAccountStatus(account.status);
-    setAccountPassword('');
-    setShowEditModal(true);
-  };
-
-  const handleDeleteAccount = (account: TutorAccount) => {
+  const handleDeleteAccount = async (account: TutorAccount) => {
     if (confirm(`Hapus akun tutor "${account.nama}"?\n\nTutor tidak akan bisa login lagi setelah akun dihapus.`)) {
-      setTutorAccounts(tutorAccounts.filter(acc => acc.id !== account.id));
-      alert(`Akun ${account.nama} berhasil dihapus!`);
+      try {
+        await api.delete(`/admin/tutor-accounts/${account.userId}`);
+        alert(`Akun ${account.nama} berhasil dihapus!`);
+        fetchAccounts();
+      } catch (error: any) {
+        console.error("Gagal menghapus akun tutor:", error);
+        alert(error.response?.data?.message || "Gagal menghapus akun tutor");
+      }
     }
   };
 
-  const handleChangeAdminPassword = () => {
+  const handleChangeAdminPassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
       alert('Mohon lengkapi semua field password');
       return;
@@ -134,16 +134,45 @@ export function KeamananAkun() {
     }
 
     if (confirm('Ubah password admin?\n\nAnda akan otomatis logout setelah password diubah.')) {
-      alert('Password admin berhasil diubah!\n\nAnda akan dialihkan ke halaman login...');
-      setShowPasswordModal(false);
-      setOldPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      // Simulasi logout
-      setTimeout(() => {
-        alert('Logout berhasil!');
-      }, 500);
+      try {
+        await api.post("/admin/change-password", {
+          oldPassword,
+          newPassword,
+        });
+
+        alert('Password admin berhasil diubah!\n\nAnda akan dialihkan ke halaman login...');
+        setShowPasswordModal(false);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        
+        // Log out admin
+        localStorage.clear();
+        window.location.reload();
+      } catch (error: any) {
+        console.error("Gagal mengubah password admin:", error);
+        alert(error.response?.data?.message || "Gagal mengubah password admin. Pastikan password lama sesuai.");
+      }
     }
+  };
+
+  const filteredAccounts = tutorAccounts.filter(acc =>
+    acc.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    acc.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    acc.tutorKode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    acc.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleEditClick = (account: TutorAccount) => {
+    setEditingAccount(account);
+    setAccountStatus(account.status);
+    setAccountPassword(''); // clear password field for editing
+    setShowEditModal(true);
+  };
+
+  const handleViewClick = (account: TutorAccount) => {
+    setViewingAccount(account);
+    setShowViewModal(true);
   };
 
   return (
@@ -155,7 +184,10 @@ export function KeamananAkun() {
             <h2 className="text-xl font-semibold">Manajemen Akun Tutor</h2>
           </div>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setAccountPassword('tutor123');
+              setShowAddModal(true);
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <UserPlus className="w-4 h-4" />
@@ -193,10 +225,10 @@ export function KeamananAkun() {
               {filteredAccounts.map((account) => (
                 <tr key={account.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-500 font-mono">{account.id}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500 font-mono">{account.tutorId}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 font-mono">{account.tutorKode}</td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-xs font-medium">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-xs font-medium uppercase">
                         {account.nama.charAt(0)}
                       </div>
                       <span className="font-medium">{account.nama}</span>
@@ -217,6 +249,13 @@ export function KeamananAkun() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewClick(account)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="View Akun"
+                      >
+                        <Eye className="w-4 h-4 text-gray-600" />
+                      </button>
                       <button
                         onClick={() => handleEditClick(account)}
                         className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
@@ -241,7 +280,7 @@ export function KeamananAkun() {
 
         {filteredAccounts.length === 0 && (
           <div className="text-center py-12 text-gray-500">
-            {searchQuery ? 'Tidak ada akun tutor yang ditemukan' : 'Belum ada akun tutor yang terdaftar'}
+            {isLoading ? 'Memuat data...' : searchQuery ? 'Tidak ada akun tutor yang ditemukan' : 'Belum ada akun tutor yang terdaftar'}
           </div>
         )}
 
@@ -273,12 +312,65 @@ export function KeamananAkun() {
         </div>
       </div>
 
+      {/* Modal View Detail Akun Tutor */}
+      {showViewModal && viewingAccount && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-semibold">Detail Akun Tutor</h3>
+              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
+            </div>
+            <div className="p-6 space-y-4 text-sm">
+              <div className="grid grid-cols-3 gap-2 border-b border-gray-100 pb-3">
+                <span className="text-gray-500 font-medium">ID Akun</span>
+                <span className="col-span-2 font-mono text-gray-800">{viewingAccount.id}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 border-b border-gray-100 pb-3">
+                <span className="text-gray-500 font-medium">ID Tutor</span>
+                <span className="col-span-2 font-mono text-gray-800">{viewingAccount.tutorKode}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 border-b border-gray-100 pb-3">
+                <span className="text-gray-500 font-medium">Nama Tutor</span>
+                <span className="col-span-2 text-gray-800 font-semibold">{viewingAccount.nama}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 border-b border-gray-100 pb-3">
+                <span className="text-gray-500 font-medium">Email</span>
+                <span className="col-span-2 text-gray-800">{viewingAccount.email}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 border-b border-gray-100 pb-3">
+                <span className="text-gray-500 font-medium">Status</span>
+                <span className="col-span-2">
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    viewingAccount.status === 'aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {viewingAccount.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <span className="text-gray-500 font-medium">Last Login</span>
+                <span className="col-span-2 text-gray-800">{viewingAccount.lastLogin || '-'}</span>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Tambah Akun Tutor */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
           <div className="bg-white rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-xl font-semibold">Tambah Akun Tutor</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
             </div>
             <div className="p-6 space-y-4">
               <div>
@@ -288,17 +380,17 @@ export function KeamananAkun() {
                 <select
                   value={selectedTutorId}
                   onChange={(e) => setSelectedTutorId(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="">-- Pilih Tutor --</option>
-                  {tutors.map((tutor) => (
+                  {availableTutors.map((tutor) => (
                     <option key={tutor.id} value={tutor.id}>
-                      {tutor.nama} ({tutor.email})
+                      {tutor.nama} ({tutor.kode})
                     </option>
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Data tutor diambil dari Master Data
+                  Hanya menampilkan tutor dari Master Data yang belum memiliki akun
                 </p>
               </div>
 
@@ -309,19 +401,16 @@ export function KeamananAkun() {
                 <select
                   value={accountStatus}
                   onChange={(e) => setAccountStatus(e.target.value as 'aktif' | 'nonaktif')}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="aktif">Aktif (Bisa Login)</option>
                   <option value="nonaktif">Nonaktif (Tidak Bisa Login)</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Akun nonaktif tidak dapat login ke sistem
-                </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password *
+                  Password Default *
                 </label>
                 <div className="relative">
                   <input
@@ -346,7 +435,7 @@ export function KeamananAkun() {
                 onClick={() => {
                   setShowAddModal(false);
                   setSelectedTutorId('');
-                  setAccountPassword('');
+                  setAccountPassword('tutor123');
                 }}
                 className="flex-1 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
@@ -367,24 +456,21 @@ export function KeamananAkun() {
       {showEditModal && editingAccount && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
           <div className="bg-white rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-xl font-semibold">Edit Akun Tutor</h3>
-              <p className="text-sm text-gray-500 mt-1">{editingAccount.nama}</p>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
             </div>
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                  Nama Tutor & Email
                 </label>
                 <input
                   type="text"
-                  value={editingAccount.email}
+                  value={`${editingAccount.nama} (${editingAccount.email})`}
                   disabled
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 font-medium"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Data email diambil dari Master Data Tutor
-                </p>
               </div>
 
               <div>
@@ -394,14 +480,11 @@ export function KeamananAkun() {
                 <select
                   value={accountStatus}
                   onChange={(e) => setAccountStatus(e.target.value as 'aktif' | 'nonaktif')}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="aktif">Aktif (Bisa Login)</option>
                   <option value="nonaktif">Nonaktif (Tidak Bisa Login)</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Ubah menjadi Nonaktif untuk menonaktifkan akses login tutor
-                </p>
               </div>
 
               <div>
@@ -425,25 +508,16 @@ export function KeamananAkun() {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Isi hanya jika ingin mengubah password
+                  Isi hanya jika ingin memperbarui password tutor
                 </p>
               </div>
-
-              {accountStatus === 'nonaktif' && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <p className="text-xs text-orange-700">
-                    <strong>Perhatian:</strong> Akun dengan status Nonaktif tidak dapat login ke sistem. Tutor tidak akan bisa melakukan presensi.
-                  </p>
-                </div>
-              )}
             </div>
             <div className="p-6 border-t border-gray-200 flex gap-3">
               <button
                 onClick={() => {
                   setShowEditModal(false);
                   setEditingAccount(null);
-                  setAccountPassword('');
-                  setAccountStatus('aktif');
+                  setAccountPassword('tutor123');
                 }}
                 className="flex-1 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
@@ -464,8 +538,9 @@ export function KeamananAkun() {
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowPasswordModal(false)}>
           <div className="bg-white rounded-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-xl font-semibold">Ubah Password Admin</h3>
+              <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-bold">×</button>
             </div>
             <div className="p-6 space-y-4">
               <div>
@@ -478,7 +553,7 @@ export function KeamananAkun() {
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
                     className="w-full px-4 py-2.5 pr-12 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Masukkan password lama untuk autentifikasi"
+                    placeholder="Masukkan password lama"
                   />
                   <button
                     type="button"
@@ -533,12 +608,6 @@ export function KeamananAkun() {
                   </button>
                 </div>
               </div>
-
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-xs text-red-700">
-                  <strong>Perhatian:</strong> Setelah password diubah, Anda akan otomatis logout dari sistem.
-                </p>
-              </div>
             </div>
             <div className="p-6 border-t border-gray-200 flex gap-3">
               <button
@@ -554,7 +623,7 @@ export function KeamananAkun() {
               </button>
               <button
                 onClick={handleChangeAdminPassword}
-                className="flex-1 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                className="flex-1 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
               >
                 Simpan & Logout
               </button>
