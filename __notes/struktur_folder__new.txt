@@ -27,7 +27,7 @@ Struktur folder PRIVATE_FIXED
    |- 📁 node_modules
    |- 📁 prisma
       |- 📁 migrations
-      |- 📁 migrations
+      |- 📁 seeds
          |- 📄 levels.seed.ts
          |- 📄 samples.seed.ts
          |- 📄 students.seed.ts
