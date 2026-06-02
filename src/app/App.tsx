@@ -8,11 +8,12 @@ import { Presensi } from "./components/Presensi";
 import { Keuangan } from "./components/Keuangan";
 import { Pengaturan } from "./components/Pengaturan";
 import { Login } from "./components/Login";
-
 import TutorDashboard from "./TutorDashboard";
 import { UserAccount } from "./data/authData";
+import { ConfirmProvider } from "./context/ConfirmContext";
+import { Toaster, toast } from "sonner";
 
-export default function App() {
+function AppContent() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
@@ -55,8 +56,13 @@ export default function App() {
       if (lastActivity && now - Number(lastActivity) >= AUTO_LOGOUT_TIME) {
         handleLogout();
       } else {
-        setCurrentUser(JSON.parse(savedUser));
-        setIsAuthenticated(true);
+        try {
+          setCurrentUser(JSON.parse(savedUser));
+          setIsAuthenticated(true);
+        } catch (e) {
+          console.error("Failed to parse saved user, clearing storage.");
+          handleLogout();
+        }
       }
     }
 
@@ -75,7 +81,7 @@ export default function App() {
       }
 
       logoutTimer.current = setTimeout(() => {
-        alert("Session habis karena tidak ada aktivitas.");
+        toast.warning("Session habis karena tidak ada aktivitas.");
         handleLogout();
       }, AUTO_LOGOUT_TIME);
     };
@@ -209,5 +215,14 @@ export default function App() {
         {activeMenu === "pengaturan" && <Pengaturan />}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ConfirmProvider>
+      <Toaster position="top-right" richColors closeButton />
+      <AppContent />
+    </ConfirmProvider>
   );
 }

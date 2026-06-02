@@ -1,5 +1,6 @@
 import { X, Search } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Tutor, siswas, getLevelById } from "../../data/mockData";
 
 interface ModalTutorProps {
@@ -114,7 +115,7 @@ export function ModalTutor({
       !formData.posisi ||
       !formData.noWa
     ) {
-      alert("Mohon lengkapi field wajib (*)");
+      toast.warning("Mohon lengkapi field wajib (*)");
       return;
     }
 

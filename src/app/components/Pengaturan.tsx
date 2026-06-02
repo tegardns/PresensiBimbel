@@ -3,9 +3,12 @@ import { ProfilInstansi } from './pengaturan/ProfilInstansi';
 import { KeamananAkun } from './pengaturan/KeamananAkun';
 import { KonfigurasiSistem } from './pengaturan/KonfigurasiSistem';
 import { Database, Save } from 'lucide-react';
+import { useConfirm } from '../context/ConfirmContext';
+import { toast } from 'sonner';
 import api from '../../services/api';
 
 export function Pengaturan() {
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState('profil');
   const [hasChanges, setHasChanges] = useState(false);
   const [lastBackup] = useState('21 April 2026, 23:45 WIB');
@@ -61,19 +64,26 @@ export function Pengaturan() {
         maintenance: maintenanceMode,
       });
 
-      alert('Berhasil!\n\nSemua pengaturan telah berhasil disimpan ke database.');
       setHasChanges(false);
+      toast.success('Berhasil!\n\nSemua pengaturan telah berhasil disimpan ke database.');
       
       // Notify sidebar to reload agency info
       window.dispatchEvent(new Event('settingsChanged'));
     } catch (error: any) {
-      console.error('Gagal menyimpan pengaturan:', error);
-      alert(error.response?.data?.message || 'Gagal menyimpan pengaturan');
+      console.error("Gagal menyimpan pengaturan:", error);
+      toast.error(error.response?.data?.message || 'Gagal menyimpan pengaturan');
     }
   };
 
-  const handleDiscardChanges = () => {
-    if (confirm('Batalkan semua perubahan yang belum disimpan?')) {
+  const handleDiscardChanges = async () => {
+    const isConfirmed = await confirm({
+      title: "Batalkan Perubahan",
+      description: "Batalkan semua perubahan yang belum disimpan?",
+      variant: "warning",
+      confirmText: "Ya, Batalkan"
+    });
+    
+    if (isConfirmed) {
       fetchSettings();
       setHasChanges(false);
     }

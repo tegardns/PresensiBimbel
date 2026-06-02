@@ -1,5 +1,6 @@
 import { TrendingUp, DollarSign, Calendar, Download } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { toast } from 'sonner';
 
 const monthlyData = [
   { id: 'month-jan', bulan: 'Jan', grossRevenue: 8400000, adminProfit: 840000 },
@@ -62,8 +63,8 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
 
   const totalGrossApril = latestMonthData.grossRevenue;
   const totalProfitApril = latestMonthData.adminProfit;
-  
-  const growthRateVal = prevMonthData.adminProfit > 0 
+
+  const growthRateVal = prevMonthData.adminProfit > 0
     ? ((totalProfitApril - prevMonthData.adminProfit) / prevMonthData.adminProfit * 100)
     : 0.0;
   const growthRate = growthRateVal.toFixed(1);
@@ -72,7 +73,7 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
   const latestMonthName = latestMonthData.bulan;
 
   const handleExport = (format: 'excel' | 'pdf') => {
-    alert(`Exporting laporan pendapatan ke format ${format.toUpperCase()}...\n\nFungsi export akan diimplementasikan.`);
+    toast.info(`Exporting laporan pendapatan ke format ${format.toUpperCase()}...\n\nFungsi export akan diimplementasikan.`);
   };
 
   return (
@@ -198,7 +199,7 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Nama Tutor</th>
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Jumlah Sesi</th>
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Total Gross Revenue</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Admin Share (10%)</th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">Admin Share (20%)</th>
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Kontribusi</th>
               </tr>
             </thead>
@@ -208,11 +209,10 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
                 return (
                   <tr key={index} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-5">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${
-                        index === 0 ? 'bg-yellow-500' :
-                        index === 1 ? 'bg-gray-400' :
-                        index === 2 ? 'bg-orange-400' : 'bg-gray-300'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${index === 0 ? 'bg-yellow-500' :
+                          index === 1 ? 'bg-gray-400' :
+                            index === 2 ? 'bg-orange-400' : 'bg-gray-300'
+                        }`}>
                         {index + 1}
                       </div>
                     </td>

@@ -33,6 +33,17 @@ app.get("/db-test", async (req, res) => {
   res.json(users);
 });
 
+app.get("/api/public/settings", async (req, res) => {
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { id: "system" },
+    });
+    res.json(setting || {});
+  } catch (error) {
+    res.status(500).json({});
+  }
+});
+
 app.use("/api/auth", authRoute);
 
 app.use("/api/admin", adminRoute);

@@ -1,6 +1,21 @@
 // PRIVATE_FIXED/bimbel-backend/src/controllers/finance.controller.ts
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
+import axios from "axios";
+import { generatePDFBuffer, uploadToSupabase } from "../utils/pdfGenerator";
+
+// Helper to calculate cycle Sunday date
+const getCycleSundayStr = (date: Date) => {
+  const d = new Date(date);
+  const day = d.getDay(); // 0: Sunday, 1: Monday, ..., 6: Saturday
+  const cycleSunday = new Date(d);
+  cycleSunday.setDate(d.getDate() - day);
+  
+  const yyyy = cycleSunday.getFullYear();
+  const mm = String(cycleSunday.getMonth() + 1).padStart(2, "0");
+  const dd = String(cycleSunday.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 // ==============================
 // GET UNIFIED FINANCE DATA
@@ -40,6 +55,7 @@ export const getFinance = async (req: Request, res: Response) => {
       const adminProfit = gross - feeNet;
       return { gross, adminProfit, feeNet };
     };
+
 
     // Grouping for Payout (unpaid, status: disetujui)
     const groupedPayout = new Map<string, any>();
@@ -87,12 +103,22 @@ export const getFinance = async (req: Request, res: Response) => {
       }
 
       if (item.status === "selesai") {
-        const dateKey = item.createdAt.toISOString().split("T")[0];
-        const uniqueKey = `${tutorId}-${dateKey}`; // group by tutor and transfer date
+        // Group by payoutId if it exists, otherwise fallback to cycleSunday
+        const cycleSunday = getCycleSundayStr(item.createdAt);
+        const uniqueKey = item.payoutId || `${tutorId}-${cycleSunday}`;
+        
+        const updatedAtStr = item.updatedAt ? item.updatedAt.toISOString().split("T")[0] : item.createdAt.toISOString().split("T")[0];
 
         if (!groupedHistory.has(uniqueKey)) {
+          // Calculate cycle Saturday based on cycleSunday
+          const cycleSundayDate = new Date(cycleSunday);
+          const cycleSaturdayDate = new Date(cycleSundayDate);
+          cycleSaturdayDate.setDate(cycleSundayDate.getDate() + 6);
+          const cycleSaturday = cycleSaturdayDate.toISOString().split("T")[0];
+
           groupedHistory.set(uniqueKey, {
-            id: "",
+            id: item.payoutId || "",
+            transactionId: item.payoutId || "",
             tutorId,
             tutorKode: item.tutor?.kode || "TUT-000",
             tutorNama: item.tutor?.nama || item.tutor?.kode || "Tutor",
@@ -101,17 +127,23 @@ export const getFinance = async (req: Request, res: Response) => {
             jumlahSesi: 0,
             totalNominal: 0,
             status: "sudah-payout",
-            periodeStart: dateKey,
-            periodeEnd: dateKey,
-            tanggalTransfer: dateKey,
+            periodeStart: cycleSunday,
+            periodeEnd: cycleSaturday,
+            tanggalTransfer: "",
             sessions: []
           });
         }
         const hist = groupedHistory.get(uniqueKey);
         hist.jumlahSesi += 1;
         hist.totalNominal += metrics.feeNet;
+        
+        const dateStr = item.createdAt.toISOString().split("T")[0];
+        
+        // Gunakan updatedAt untuk tanggalTransfer (kapan admin memproses 'selesai')
+        if (!hist.tanggalTransfer || updatedAtStr > hist.tanggalTransfer) hist.tanggalTransfer = updatedAtStr;
+
         hist.sessions.push({
-          tanggal: dateKey,
+          tanggal: dateStr,
           siswa: item.student?.fullName || "-",
           mapel: item.subjectName,
           durasi: item.durationMin,
@@ -126,10 +158,27 @@ export const getFinance = async (req: Request, res: Response) => {
       id: `TRX-${new Date().getFullYear()}${String(index + 1).padStart(3, "0")}-UNPAID`,
     }));
 
-    const historyList = Array.from(groupedHistory.values()).map((item, index) => ({
-      ...item,
-      id: `TRX-${item.tanggalTransfer.replace(/-/g, "")}-W${index + 1}-PAID`,
-    }));
+    // We no longer group history by week. We just convert the map to an array.
+    const historyList: any[] = [];
+    const cleanSupabaseUrl = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+    
+    for (const hist of Array.from(groupedHistory.values())) {
+      if (!hist.id) {
+        // Fallback for legacy history without payoutId
+        const cycleSundayFormatted = hist.periodeStart.replace(/-/g, "");
+        hist.id = `TRX-${cycleSundayFormatted}-${hist.tutorKode}-PAID`;
+        hist.transactionId = `TRX-${cycleSundayFormatted}-${hist.tutorKode}-PAID`;
+      }
+      
+      const fileName = `${hist.transactionId}.pdf`;
+      if (cleanSupabaseUrl) {
+        hist.pdfUrl = `${cleanSupabaseUrl}/storage/v1/object/public/slips/${fileName}`;
+      } else {
+        hist.pdfUrl = null;
+      }
+
+      historyList.push(hist);
+    }
 
     // Summary calculations
     const totalReadyToPay = payoutList.reduce((acc, curr) => acc + curr.totalNominal, 0);
@@ -269,6 +318,49 @@ export const getFinance = async (req: Request, res: Response) => {
   }
 };
 
+// Helper to send WA via Fonnte
+// Helper to send WA via Fonnte
+const sendWA = async (to: string, message: string, fileUrl?: string, fileName?: string) => {
+  const token = process.env.FONNTE_TOKEN;
+  if (!token) {
+    console.log("Fonnte Token is empty. Skipping WhatsApp sending.");
+    return;
+  }
+
+  // Normalize phone number to format international E.164 (62...) without + sign
+  let cleanPhone = to.replace(/\D/g, "");
+  if (cleanPhone.startsWith("0")) {
+    cleanPhone = "62" + cleanPhone.slice(1);
+  }
+
+  const payload: any = {
+    target: cleanPhone,
+    message: message,
+  };
+
+  if (fileUrl) {
+    payload.url = fileUrl;
+    if (fileName) {
+      payload.filename = fileName;
+    }
+  }
+
+  try {
+    const res = await axios.post(
+      "https://api.fonnte.com/send",
+      payload,
+      {
+        headers: {
+          Authorization: token,
+        },
+      }
+    );
+    console.log("Fonnte Send WA Response:", res.data);
+  } catch (error: any) {
+    console.error("Fonnte Send WA Error:", error.response?.data || error.message);
+  }
+};
+
 // ==============================
 // PROCESS TUTOR PAYOUT
 // ==============================
@@ -282,7 +374,40 @@ export const processPayout = async (req: Request, res: Response) => {
       });
     }
 
-    // Update status seluruh presensi tutor yang 'disetujui' menjadi 'selesai'
+    const tutor = await prisma.tutor.findUnique({
+      where: { id: tutorId },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: "Tutor tidak ditemukan" });
+    }
+
+    // Fetch attendances that will be paid
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        tutorId,
+        status: "disetujui",
+      },
+      include: {
+        student: true,
+      },
+    });
+
+    if (attendances.length === 0) {
+      return res.status(400).json({ message: "Tidak ada presensi yang disetujui untuk payout" });
+    }
+
+    // Generate a unique payout ID for this specific payout action
+    const dates = attendances.map(a => new Date(a.createdAt).getTime());
+    const minDate = new Date(Math.min(...dates));
+    const cycleSunday = getCycleSundayStr(minDate);
+    const cycleSundayFormatted = cycleSunday.replace(/-/g, "");
+    
+    // Add a short random suffix to ensure multiple payouts in the same week are separated
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const transactionId = `TRX-${cycleSundayFormatted}-${tutor.kode}-${randomSuffix}-PAID`;
+
+    // Update status seluruh presensi tutor yang 'disetujui' menjadi 'selesai' dan set payoutId
     const result = await prisma.attendance.updateMany({
       where: {
         tutorId,
@@ -290,8 +415,104 @@ export const processPayout = async (req: Request, res: Response) => {
       },
       data: {
         status: "selesai",
+        payoutId: transactionId,
       },
     });
+
+    // Send WhatsApp slip notification if tutor has a WA number
+    if (tutor.noWa) {
+      // Fetch system settings to get custom agency/bimbel name
+      const settings = await prisma.systemSetting.findUnique({
+        where: { id: "system" },
+      });
+      const namaBimbel = settings?.namaBimbel || "BimbelMelly";
+
+      const totalPayout = attendances.reduce((sum, item) => sum + item.feeNet, 0);
+
+      const getCyclePeriodText = (startStr: Date) => {
+        const startDate = new Date(startStr);
+        const startDay = startDate.getDay();
+        const sunday = new Date(startDate);
+        sunday.setDate(startDate.getDate() - startDay);
+
+        const saturday = new Date(sunday);
+        saturday.setDate(sunday.getDate() + 6);
+
+        return `${sunday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} s/d ${saturday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+      };
+      
+      const cyclePeriodStr = getCyclePeriodText(minDate);
+
+      const formatRupiah = (amount: number) => {
+        return new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          minimumFractionDigits: 0,
+        }).format(amount).replace("Rp", "Rp ");
+      };
+
+      let message = `SLIP GAJI TUTOR - ${namaBimbel.toUpperCase()}\n`;
+      message += `===============================\n`;
+      message += `ID Transaksi : ${transactionId}\n`;
+      message += `Nama Tutor  : ${tutor.nama || "Tutor"} (${tutor.kode})\n`;
+      message += `Periode     : ${cyclePeriodStr}\n`;
+      message += `Jumlah Sesi : ${attendances.length} sesi\n`;
+      message += `Total Transfer: ${formatRupiah(totalPayout)}\n\n`;
+
+      message += `Detail Rekening: \n`;
+      message += `Bank: ${tutor.namaBank || "-"}\n`;
+      message += `Rekening: ${tutor.noRek || "-"}\n`;
+      message += `Status: Sudah Ditransfer\n\n`;
+
+      message += `Rincian Sesi Mengajar:\n`;
+      attendances.forEach((item, idx) => {
+        const itemDate = new Date(item.createdAt);
+        const dateFormatted = `${itemDate.getDate()} ${itemDate.toLocaleDateString("id-ID", { month: "short" })}`;
+        message += `${idx + 1}. ${dateFormatted} - ${item.student?.fullName || "Siswa"} - ${item.subjectName} (${item.durationMin}m) - ${formatRupiah(item.feeNet)}\n`;
+      });
+
+      message += `===============================\n`;
+      message += `Terima kasih atas dedikasi Anda mengajar di ${namaBimbel}! Slip gaji PDF lengkap dapat diunduh di dashboard admin.`;
+
+      // Map sessions for PDF generator
+      const sessionsMapped = attendances.map((item) => ({
+        tanggal: item.createdAt.toISOString(),
+        siswa: item.student?.fullName || "Siswa",
+        mapel: item.subjectName,
+        durasi: item.durationMin,
+        fee: item.feeNet
+      }));
+
+      // Trigger async send so it doesn't block the API response
+      (async () => {
+        try {
+          const pdfBuffer = await generatePDFBuffer({
+            payoutId: transactionId,
+            tutorNama: tutor.nama || "Tutor",
+            tutorKode: tutor.kode,
+            periodeStr: cyclePeriodStr,
+            totalNominal: totalPayout,
+            namaBank: tutor.namaBank || "-",
+            noRekening: tutor.noRek || "-",
+            sessions: sessionsMapped,
+            namaBimbel
+          });
+
+          const fileName = `${transactionId}.pdf`;
+          const fileUrl = await uploadToSupabase(pdfBuffer, fileName);
+
+          let finalMessage = message;
+          if (fileUrl) {
+            finalMessage += `\n\nLink Akses PDF Slip Gaji:\n${fileUrl}`;
+          }
+
+          await sendWA(tutor.noWa!, finalMessage, fileUrl || undefined, fileName || undefined);
+        } catch (err) {
+          console.error("Failed to generate and upload PDF slip in processPayout:", err);
+          await sendWA(tutor.noWa!, message);
+        }
+      })();
+    }
 
     res.json({
       message: "Payout berhasil diproses",
@@ -302,5 +523,140 @@ export const processPayout = async (req: Request, res: Response) => {
     res.status(500).json({
       message: "Gagal memproses payout",
     });
+  }
+};
+
+// ==============================
+// RESEND PAYOUT SLIP WHATSAPP
+// ==============================
+export const sendWhatsAppPayout = async (req: Request, res: Response) => {
+  try {
+    const {
+      tutorId,
+      payoutId,
+      tutorNama,
+      tutorKode,
+      periodeStart,
+      periodeEnd,
+      tanggalTransfer,
+      totalNominal,
+      namaBank,
+      noRekening,
+      sessions
+    } = req.body;
+
+    if (!tutorId) {
+      return res.status(400).json({ message: "Tutor ID wajib diisi" });
+    }
+
+    const tutor = await prisma.tutor.findUnique({
+      where: { id: tutorId },
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: "Tutor tidak ditemukan" });
+    }
+
+    if (!tutor.noWa) {
+      return res.status(400).json({ message: "Tutor tidak memiliki nomor WhatsApp yang terdaftar" });
+    }
+
+    // Fetch system settings to get custom agency/bimbel name
+    const settings = await prisma.systemSetting.findUnique({
+      where: { id: "system" },
+    });
+    const namaBimbel = settings?.namaBimbel || "BimbelMelly";
+
+    const formatDateStr = (dStr: string) => {
+      const d = new Date(dStr);
+      return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    };
+
+    // Calculate weekly cycle period from Sunday of start date's week to Saturday of end date's week
+    const getCyclePeriod = (startStr: string, endStr: string) => {
+      if (!startStr) return "-";
+      const startDate = new Date(startStr);
+      const startDay = startDate.getDay();
+      const sunday = new Date(startDate);
+      sunday.setDate(startDate.getDate() - startDay);
+
+      const endDate = endStr ? new Date(endStr) : startDate;
+      const endDay = endDate.getDay();
+      const saturday = new Date(sunday);
+      saturday.setDate(sunday.getDate() + 6);
+
+      return `${formatDateStr(sunday.toISOString().split('T')[0])} s/d ${formatDateStr(saturday.toISOString().split('T')[0])}`;
+    };
+
+    const formatRupiah = (amount: number) => {
+      return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+      }).format(amount).replace("Rp", "Rp ");
+    };
+
+    let message = `SLIP GAJI TUTOR - ${namaBimbel.toUpperCase()}\n`;
+    message += `===============================\n`;
+    message += `ID Transaksi : ${payoutId || "-"}\n`;
+    message += `Nama Tutor  : ${tutor.nama || tutorNama || "Tutor"} (${tutor.kode || tutorKode})\n`;
+    message += `Periode     : ${getCyclePeriod(periodeStart, periodeEnd)}\n`;
+    message += `Jumlah Sesi : ${sessions?.length || 0} sesi\n`;
+    message += `Total Transfer: ${formatRupiah(totalNominal)}\n\n`;
+
+    message += `Detail Rekening: \n`;
+    message += `Bank: ${tutor.namaBank || namaBank || "-"}\n`;
+    message += `Rekening: ${tutor.noRek || noRekening || "-"}\n`;
+    message += `Status: Sudah Ditransfer\n\n`;
+
+    if (sessions && sessions.length > 0) {
+      message += `Rincian Sesi Mengajar:\n`;
+      sessions.forEach((item: any, idx: number) => {
+        const itemDate = new Date(item.tanggal);
+        const dateFormatted = `${itemDate.getDate()} ${itemDate.toLocaleDateString("id-ID", { month: "short" })}`;
+        message += `${idx + 1}. ${dateFormatted} - ${item.siswa} - ${item.mapel} (${item.durasi}m) - ${formatRupiah(item.fee)}\n`;
+      });
+    }
+
+    message += `===============================\n`;
+    message += `Terima kasih atas dedikasi Anda mengajar di ${namaBimbel}! Slip gaji PDF lengkap dapat diunduh di dashboard admin.`;
+
+    const cyclePeriodStr = getCyclePeriod(periodeStart, periodeEnd);
+
+    // Trigger async send so it doesn't block the API response
+    (async () => {
+      try {
+        const pdfBuffer = await generatePDFBuffer({
+          payoutId: payoutId || "TRX-MANUAL",
+          tutorNama: tutor.nama || tutorNama || "Tutor",
+          tutorKode: tutor.kode || tutorKode,
+          periodeStr: cyclePeriodStr,
+          totalNominal: totalNominal,
+          namaBank: tutor.namaBank || namaBank || "-",
+          noRekening: tutor.noRek || noRekening || "-",
+          sessions: sessions || [],
+          namaBimbel
+        });
+
+        // We should use the payoutId if it's available. The frontend will pass payoutId = TRX-...-PAID
+        const fileName = `${payoutId}.pdf`;
+        const fileUrl = await uploadToSupabase(pdfBuffer, fileName);
+
+        let finalMessage = message;
+        if (fileUrl) {
+          finalMessage += `\n\nLink Akses PDF Slip Gaji:\n${fileUrl}`;
+        }
+
+        await sendWA(tutor.noWa!, finalMessage, fileUrl || undefined, fileName || undefined);
+      } catch (err) {
+        console.error("Failed to generate and upload PDF slip in sendWhatsAppPayout:", err);
+        await sendWA(tutor.noWa!, message);
+      }
+    })();
+
+    res.json({ message: "WhatsApp slip gaji berhasil dikirim" });
+  } catch (error) {
+    console.error("SEND PAYOUT WHATSAPP ERROR:", error);
+    res.status(500).json({ message: "Gagal mengirim WhatsApp slip gaji" });
   }
 };

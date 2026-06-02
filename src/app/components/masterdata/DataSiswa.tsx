@@ -1,8 +1,10 @@
 // PRIVATE_FIXED/src/app/components/masterdata/DataSiswa.tsx
 import { useEffect, useState } from "react";
 import { Search, Plus, Edit2, Power, Eye, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import api from "../../../services/api";
 import { ModalSiswa } from "./ModalSiswa";
+import { useConfirm } from "../../context/ConfirmContext";
 
 interface Siswa {
   id: string;
@@ -33,6 +35,7 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSiswa, setEditingSiswa] = useState<Siswa | null>(null);
   const [students, setStudents] = useState<Siswa[]>([]);
+  const confirm = useConfirm();
 
   useEffect(() => {
     fetchStudents();
@@ -89,16 +92,22 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
     return colors[level as keyof typeof colors] || "bg-gray-100 text-gray-700";
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Yakin hapus siswa?")) return;
+  const handleDelete = async (id: string, nama: string) => {
+    const isConfirmed = await confirm({
+      title: "Hapus Siswa",
+      description: `Yakin ingin menghapus siswa "${nama}"?\nData tidak dapat dikembalikan.`,
+      variant: "danger",
+      confirmText: "Hapus"
+    });
+    if (!isConfirmed) return;
 
     try {
       const res = await api.delete(`/students/${id}`);
-      alert(res.data?.message || "Siswa berhasil dihapus");
+      toast.success(res.data?.message || "Siswa berhasil dihapus");
       fetchStudents();
     } catch (error: any) {
       console.error("Gagal hapus siswa:", error);
-      alert(error.response?.data?.message || "Gagal hapus siswa");
+      toast.error(error.response?.data?.message || "Gagal hapus siswa");
     }
   };
 
@@ -107,9 +116,10 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
     try {
       await api.patch(`/students/${id}/status`);
       fetchStudents();
+      toast.success("Status siswa berhasil diubah");
     } catch (error) {
       console.error("Gagal update status siswa:", error);
-      alert("Gagal update status");
+      toast.error("Gagal update status");
     }
   };
 
@@ -250,7 +260,7 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
                       </button>
 
                       <button
-                        onClick={() => handleDelete(siswa.id)}
+                        onClick={() => handleDelete(siswa.id, siswa.fullName)}
                         className="p-2 hover:bg-red-100 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />

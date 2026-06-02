@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { ArrowLeft, Camera, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -111,7 +112,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     setOldPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    alert('Password berhasil diubah. Silakan login kembali.');
+    toast.success('Password berhasil diubah. Silakan login kembali.');
   };
 
   return (

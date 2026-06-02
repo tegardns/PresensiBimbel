@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Settings, Percent, Calendar, Database, Trash2, AlertTriangle } from 'lucide-react';
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from 'sonner';
 
 interface KonfigurasiSistemProps {
   komisiAdmin: number;
@@ -20,20 +22,27 @@ export function KonfigurasiSistem({
   setMaintenanceMode,
   onChangeDetected,
 }: KonfigurasiSistemProps) {
-
+  const confirm = useConfirm();
 
   const handleBackupData = () => {
-    alert('Memulai backup data...\n\nBackup akan di-download dalam format .xlsx\n\nData yang di-backup:\n- Siswa\n- Tutor\n- Transaksi\n- Presensi\n- Payout\n\nProses backup akan memakan waktu beberapa detik.');
+    toast.info('Memulai backup data...\n\nBackup akan di-download dalam format .xlsx\n\nData yang di-backup:\n- Siswa\n- Tutor\n- Transaksi\n- Presensi\n- Payout\n\nProses backup akan memakan waktu beberapa detik.');
   };
 
-  const handleDeleteOldLogs = () => {
-    if (confirm('Hapus log aktivitas yang lebih dari 1 tahun?\n\nData yang dihapus tidak dapat dikembalikan.\n\nProses ini akan meningkatkan performa database.')) {
-      alert('Menghapus log lama...\n\n42 log aktivitas telah dihapus.');
+  const handleDeleteOldLogs = async () => {
+    const isConfirmed = await confirm({
+      title: "Hapus Log Lama",
+      description: 'Hapus log aktivitas yang lebih dari 1 tahun?\n\nData yang dihapus tidak dapat dikembalikan.\n\nProses ini akan meningkatkan performa database.',
+      variant: "danger",
+      confirmText: "Ya, Hapus Log"
+    });
+
+    if (isConfirmed) {
+      toast.success('Menghapus log lama...\n\n42 log aktivitas telah dihapus.');
     }
   };
 
   const handleResetDatabase = () => {
-    alert('⚠️ PERINGATAN BAHAYA ⚠️\n\nFitur ini akan menghapus SEMUA data dari sistem.\n\nUntuk keamanan, fitur ini dinonaktifkan di versi demo.\n\nJika Anda benar-benar perlu mereset database, hubungi developer.');
+    toast.error('⚠️ PERINGATAN BAHAYA ⚠️\n\nFitur ini akan menghapus SEMUA data dari sistem.\n\nUntuk keamanan, fitur ini dinonaktifkan di versi demo.\n\nJika Anda benar-benar perlu mereset database, hubungi developer.');
   };
 
   return (

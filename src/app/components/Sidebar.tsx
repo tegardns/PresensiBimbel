@@ -12,6 +12,7 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { UserAccount } from "../data/authData";
 import api from "../../services/api";
+import { useConfirm } from "../context/ConfirmContext";
 
 interface SidebarProps {
   activeMenu: string;
@@ -29,6 +30,7 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const confirm = useConfirm();
 
   // Agency profile visual settings states
   const [namaBimbel, setNamaBimbel] = useState("BimbelMelly");
@@ -73,12 +75,15 @@ export function Sidebar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    if (
-      confirm(
-        "Apakah Anda yakin ingin logout?\n\nAnda akan keluar dari sistem admin.",
-      )
-    ) {
+  const handleLogout = async () => {
+    const isConfirmed = await confirm({
+      title: "Konfirmasi Logout",
+      description: "Apakah Anda yakin ingin logout?\n\nAnda akan keluar dari sistem admin.",
+      variant: "danger",
+      confirmText: "Keluar"
+    });
+    
+    if (isConfirmed) {
       setShowProfileMenu(false);
       onLogout();
     }

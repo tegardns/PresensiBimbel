@@ -1,8 +1,10 @@
 // PRIVATE_FIXED/src/app/components/masterdata/DataMapel.tsx
 import { useEffect, useState } from "react";
 import { Search, Plus, Edit2, Power, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import api from "../../../services/api";
 import { ModalMapel } from "./ModalMapel";
+import { useConfirm } from "../../context/ConfirmContext";
 
 export interface Mapel {
   id: string;
@@ -28,6 +30,7 @@ export function DataMapel({ searchQuery, setSearchQuery }: DataMapelProps) {
   const [editingMapel, setEditingMapel] = useState<Mapel | null>(null);
   const [mapels, setMapels] = useState<Mapel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const confirm = useConfirm();
 
   useEffect(() => {
     fetchMapel();
@@ -41,7 +44,7 @@ export function DataMapel({ searchQuery, setSearchQuery }: DataMapelProps) {
       setMapels(res.data);
     } catch (error) {
       console.error("Gagal ambil data mapel:", error);
-      alert("Gagal ambil data mapel");
+      toast.error("Gagal ambil data mapel");
     } finally {
       setIsLoading(false);
     }
@@ -51,25 +54,30 @@ export function DataMapel({ searchQuery, setSearchQuery }: DataMapelProps) {
     try {
       await api.patch(`/subjects/${id}/status`);
       fetchMapel();
+      toast.success("Status mapel berhasil diubah");
     } catch (error) {
       console.error("Gagal mengubah status mapel:", error);
-      alert("Gagal mengubah status mapel");
+      toast.error("Gagal mengubah status mapel");
     }
   };
 
   const handleDelete = async (mapel: Mapel) => {
-    const confirmDelete = confirm(
-      `Apakah kamu yakin ingin menghapus mata pelajaran "${mapel.nama} (${mapel.level})"?\n\nData yang dihapus tidak dapat dikembalikan.`
-    );
+    const isConfirmed = await confirm({
+      title: "Hapus Mata Pelajaran",
+      description: `Apakah kamu yakin ingin menghapus mata pelajaran "${mapel.nama} (${mapel.level})"?\n\nData yang dihapus tidak dapat dikembalikan.`,
+      variant: "danger",
+      confirmText: "Hapus"
+    });
 
-    if (!confirmDelete) return;
+    if (!isConfirmed) return;
 
     try {
       await api.delete(`/subjects/${mapel.id}`);
       fetchMapel();
+      toast.success("Mapel berhasil dihapus");
     } catch (error) {
       console.error("Gagal menghapus mapel:", error);
-      alert("Gagal menghapus mapel");
+      toast.error("Gagal menghapus mapel");
     }
   };
 

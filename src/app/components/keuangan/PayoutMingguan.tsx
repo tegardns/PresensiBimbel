@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, Clock, Edit2, Send, Eye } from 'lucide-react';
+import { toast } from 'sonner';
 import api from '../../../services/api';
+import { useConfirm } from "../../context/ConfirmContext";
 
 interface SessionDetail {
   tanggal: string;
@@ -31,6 +33,7 @@ interface PayoutMingguanProps {
 }
 
 export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
+  const confirm = useConfirm();
   const [payoutList, setPayoutList] = useState<PayoutData[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
@@ -65,61 +68,57 @@ export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
 
   const getCyclePeriod = (startStr: string, endStr: string) => {
     if (!startStr) return "-";
-    
+
     const startDate = new Date(startStr);
     const startDay = startDate.getDay();
-    // Monday of start date's week
-    const mondayDiff = startDay === 0 ? -6 : 1 - startDay;
-    const monday = new Date(startDate);
-    monday.setDate(startDate.getDate() + mondayDiff);
+    // Sunday of start date's week
+    const sunday = new Date(startDate);
+    sunday.setDate(startDate.getDate() - startDay);
 
     const endDate = endStr ? new Date(endStr) : startDate;
     const endDay = endDate.getDay();
     // Saturday of end date's week
-    const saturdayDiff = endDay === 0 ? -1 : 6 - endDay;
-    const saturday = new Date(endDate);
-    saturday.setDate(endDate.getDate() + saturdayDiff);
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
 
-    return `${formatDate(monday.toISOString().split('T')[0])} - ${formatDate(saturday.toISOString().split('T')[0])}`;
+    return `${formatDate(sunday.toISOString().split('T')[0])} - ${formatDate(saturday.toISOString().split('T')[0])}`;
   };
 
   const getCurrentCycle = () => {
     const today = new Date();
     const day = today.getDay();
-    
-    // Monday of current week
-    const mondayDiff = day === 0 ? -6 : 1 - day;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + mondayDiff);
-    
+
+    // Sunday of current week
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - day);
+
     // Saturday of current week
-    const saturdayDiff = day === 0 ? -1 : 6 - day;
-    const saturday = new Date(today);
-    saturday.setDate(today.getDate() + saturdayDiff);
-    
-    return `${formatDate(monday.toISOString().split('T')[0])} - ${formatDate(saturday.toISOString().split('T')[0])}`;
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
+
+    return `${formatDate(sunday.toISOString().split('T')[0])} - ${formatDate(saturday.toISOString().split('T')[0])}`;
   };
 
   const isPayoutOverdue = (payout: PayoutData) => {
     if (payout.status === 'sudah-payout') return false;
-    
+
     const endDateStr = payout.periodeEnd || payout.periodeStart;
     if (!endDateStr) return false;
-    
+
     const endDate = new Date(endDateStr);
     const endDay = endDate.getDay();
     // Saturday of end date's week
     const saturdayDiff = endDay === 0 ? -1 : 6 - endDay;
     const saturday = new Date(endDate);
     saturday.setDate(endDate.getDate() + saturdayDiff);
-    
+
     // Sunday of that week is Saturday + 1 day
     const Sunday = new Date(saturday);
     Sunday.setDate(saturday.getDate() + 1);
-    
+
     // Set Sunday time to end of day (23:59:59)
     Sunday.setHours(23, 59, 59, 999);
-    
+
     const today = new Date();
     return today > Sunday;
   };
@@ -158,24 +157,38 @@ export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
     }).format(amount);
   };
 
-  const handleProsesPayout = (id: string) => {
-    if (confirm('Proses payout untuk transaksi ini?\n\nStatus akan berubah menjadi "Diproses" dan tutor akan menerima notifikasi.')) {
+  const handleProsesPayout = async (id: string) => {
+    const isConfirmed = await confirm({
+      title: "Proses Payout",
+      description: 'Proses payout untuk transaksi ini?\n\nStatus akan berubah menjadi "Diproses" dan tutor akan menerima notifikasi.',
+      variant: "info",
+      confirmText: "Ya, Proses"
+    });
+
+    if (isConfirmed) {
       setPayoutList(payoutList.map(p =>
         p.id === id ? { ...p, status: 'diproses' as const } : p
       ));
-      alert('Status berhasil diubah menjadi "Diproses"');
+      toast.success('Status berhasil diubah menjadi "Diproses"');
     }
   };
 
   const handleSudahPayout = async (id: string, tutorId: string) => {
-    if (confirm('Konfirmasi bahwa transfer sudah dilakukan secara manual?\n\nPastikan Anda sudah mentransfer dana ke rekening tutor.')) {
+    const isConfirmed = await confirm({
+      title: "Konfirmasi Transfer",
+      description: 'Konfirmasi bahwa transfer sudah dilakukan secara manual?\n\nPastikan Anda sudah mentransfer dana ke rekening tutor.',
+      variant: "success",
+      confirmText: "Selesai Payout"
+    });
+
+    if (isConfirmed) {
       try {
         await api.post('/finance/payout', { tutorId });
-        alert('Transfer gaji tutor berhasil dikonfirmasi dan dicatat ke sistem!');
+        toast.success('Transfer gaji tutor berhasil dikonfirmasi dan dicatat ke sistem!');
         onPayoutSuccess();
       } catch (error) {
         console.error("Gagal mengirim payout:", error);
-        alert("Gagal memproses payout di database.");
+        toast.error("Gagal memproses payout di database.");
       }
     }
   };
@@ -190,7 +203,7 @@ export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
       p.id === id ? { ...p, totalNominal: editValue } : p
     ));
     setEditingId(null);
-    alert(`Nominal berhasil diupdate menjadi ${formatRupiah(editValue)}`);
+    toast.success(`Nominal berhasil diupdate menjadi ${formatRupiah(editValue)}`);
   };
 
   const totalDiproses = payoutList.filter(p => p.status === 'diproses').length;
@@ -208,7 +221,7 @@ export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
           <div className="flex-1">
             <h4 className="font-medium text-blue-900 mb-1">Siklus Payout Mingguan</h4>
             <p className="text-sm text-blue-700">
-              Periode: <strong>{getCurrentCycle()}</strong> (Senin - Sabtu)<br />
+              Periode: <strong>{getCurrentCycle()}</strong> (Minggu - Sabtu)<br />
               Sesi yang dilakukan pada hari Minggu akan masuk ke siklus minggu berikutnya.
             </p>
           </div>
@@ -317,18 +330,17 @@ export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
                       </span>
                     ) : (
                       <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs ${
-                          payout.status === 'sudah-payout'
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs ${payout.status === 'sudah-payout'
                             ? 'bg-green-100 text-green-700'
                             : payout.status === 'diproses'
-                            ? 'bg-orange-100 text-orange-700'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}
                       >
                         {payout.status === 'sudah-payout' && <CheckCircle className="w-3 h-3" />}
                         {payout.status === 'diproses' && <Clock className="w-3 h-3" />}
                         {payout.status === 'sudah-payout' ? 'Sudah Payout' :
-                         payout.status === 'diproses' ? 'Diproses' : 'Disetujui'}
+                          payout.status === 'diproses' ? 'Diproses' : 'Disetujui'}
                       </span>
                     )}
                   </td>
@@ -417,16 +429,15 @@ export function PayoutMingguan({ data, onPayoutSuccess }: PayoutMingguanProps) {
                     </span>
                   ) : (
                     <span
-                      className={`inline-flex items-center gap-1 px-3 py-1 mt-1 rounded-full text-xs ${
-                        selectedPayout.status === 'sudah-payout'
+                      className={`inline-flex items-center gap-1 px-3 py-1 mt-1 rounded-full text-xs ${selectedPayout.status === 'sudah-payout'
                           ? 'bg-green-100 text-green-700'
                           : selectedPayout.status === 'diproses'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
                     >
                       {selectedPayout.status === 'sudah-payout' ? 'Sudah Payout' :
-                       selectedPayout.status === 'diproses' ? 'Diproses' : 'Disetujui'}
+                        selectedPayout.status === 'diproses' ? 'Diproses' : 'Disetujui'}
                     </span>
                   )}
                 </div>

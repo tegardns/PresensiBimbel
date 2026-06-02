@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Search, Download, Filter, Eye, Edit2, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { useConfirm } from "../../context/ConfirmContext";
 import { ModalEditRiwayat } from './ModalEditRiwayat';
 import api from '../../../services/api';
 
@@ -31,6 +33,7 @@ export function RiwayatPresensi({ onRefresh }: RiwayatPresensiProps) {
   const [showFilter, setShowFilter] = useState(false);
   const [editingPresensi, setEditingPresensi] = useState<Presensi | null>(null);
   const [viewingPresensi, setViewingPresensi] = useState<Presensi | null>(null);
+  const confirm = useConfirm();
   
   const [riwayat, setRiwayat] = useState<Presensi[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +95,7 @@ export function RiwayatPresensi({ onRefresh }: RiwayatPresensiProps) {
   };
 
   const handleExport = (format: 'pdf' | 'excel') => {
-    alert(`Export data sebagai ${format.toUpperCase()}\n\nTotal: ${filteredRiwayat.length} data`);
+    toast.info(`Export data sebagai ${format.toUpperCase()}\n\nTotal: ${filteredRiwayat.length} data`);
   };
 
   const handleSaveEdit = async (updated: Presensi) => {
@@ -105,12 +108,12 @@ export function RiwayatPresensi({ onRefresh }: RiwayatPresensiProps) {
         tanggal: updated.tanggal,
         status: updated.status,
       });
-      alert(`Presensi berhasil diperbarui!`);
+      toast.success(`Presensi berhasil diperbarui!`);
       setEditingPresensi(null);
       fetchRiwayat();
       onRefresh();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Gagal memperbarui riwayat presensi');
+      toast.error(error.response?.data?.message || 'Gagal memperbarui riwayat presensi');
     }
   };
 
@@ -155,9 +158,15 @@ export function RiwayatPresensi({ onRefresh }: RiwayatPresensiProps) {
           </button>
 
           <button
-            onClick={() => {
-              const format = confirm('Export sebagai PDF?\n\nKlik OK untuk PDF, Cancel untuk Excel');
-              handleExport(format ? 'pdf' : 'excel');
+            onClick={async () => {
+              const isPdf = await confirm({
+                title: "Format Export",
+                description: "Pilih format file untuk mengekspor data riwayat presensi:",
+                confirmText: "Download PDF",
+                cancelText: "Download Excel",
+                variant: "info"
+              });
+              handleExport(isPdf ? 'pdf' : 'excel');
             }}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm shadow-xs"
           >

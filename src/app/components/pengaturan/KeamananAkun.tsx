@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, Key, Edit2, Trash2, Eye, EyeOff, Search } from 'lucide-react';
+import { toast } from 'sonner';
 import api from '../../../services/api';
+import { useConfirm } from "../../context/ConfirmContext";
 
 interface TutorAccount {
   id: string; // Sequential short ID ACC-001, ACC-002, etc.
@@ -23,6 +25,7 @@ export function KeamananAkun() {
   const [editingAccount, setEditingAccount] = useState<TutorAccount | null>(null);
   const [viewingAccount, setViewingAccount] = useState<TutorAccount | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const confirm = useConfirm();
 
   // Form state for add/edit tutor account
   const [selectedTutorId, setSelectedTutorId] = useState('');
@@ -61,7 +64,7 @@ export function KeamananAkun() {
 
   const handleAddAccount = async () => {
     if (!selectedTutorId) {
-      alert('Mohon pilih tutor');
+      toast.warning('Mohon pilih tutor');
       return;
     }
 
@@ -72,7 +75,7 @@ export function KeamananAkun() {
         password: accountPassword,
       });
 
-      alert(`Akun tutor berhasil ditambahkan!\nPassword default: ${accountPassword}`);
+      toast.success(`Akun tutor berhasil ditambahkan!\nPassword default: ${accountPassword}`);
       setShowAddModal(false);
       setSelectedTutorId('');
       setAccountPassword('tutor123');
@@ -80,7 +83,7 @@ export function KeamananAkun() {
       fetchAccounts();
     } catch (error: any) {
       console.error("Gagal menambahkan akun tutor:", error);
-      alert(error.response?.data?.message || "Gagal menambahkan akun tutor");
+      toast.error(error.response?.data?.message || "Gagal menambahkan akun tutor");
     }
   };
 
@@ -93,65 +96,80 @@ export function KeamananAkun() {
         password: accountPassword !== 'tutor123' && accountPassword ? accountPassword : undefined,
       });
 
-      alert(`Akun ${editingAccount.nama} berhasil diperbarui!`);
+      toast.success(`Akun ${editingAccount.nama} berhasil diperbarui!`);
       setShowEditModal(false);
       setEditingAccount(null);
       setAccountPassword('tutor123');
       fetchAccounts();
     } catch (error: any) {
-      console.error("Gagal mengupdate akun tutor:", error);
-      alert(error.response?.data?.message || "Gagal memperbarui akun tutor");
+      console.error("Gagal memperbarui akun tutor:", error);
+      toast.error(error.response?.data?.message || "Gagal memperbarui akun tutor");
     }
   };
 
   const handleDeleteAccount = async (account: TutorAccount) => {
-    if (confirm(`Hapus akun tutor "${account.nama}"?\n\nTutor tidak akan bisa login lagi setelah akun dihapus.`)) {
+    const isConfirmed = await confirm({
+      title: "Hapus Akun Tutor",
+      description: `Hapus akun tutor "${account.nama}"?\n\nTutor tidak akan bisa login lagi setelah akun dihapus.`,
+      variant: "danger",
+      confirmText: "Hapus Akun"
+    });
+
+    if (isConfirmed) {
       try {
         await api.delete(`/admin/tutor-accounts/${account.userId}`);
-        alert(`Akun ${account.nama} berhasil dihapus!`);
+        toast.success(`Akun ${account.nama} berhasil dihapus!`);
         fetchAccounts();
       } catch (error: any) {
         console.error("Gagal menghapus akun tutor:", error);
-        alert(error.response?.data?.message || "Gagal menghapus akun tutor");
+        toast.error(error.response?.data?.message || "Gagal menghapus akun tutor");
       }
     }
   };
 
   const handleChangeAdminPassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
-      alert('Mohon lengkapi semua field password');
+      toast.warning('Mohon lengkapi semua field password');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      alert('Password baru dan konfirmasi password tidak cocok!');
+      toast.error('Password baru dan konfirmasi password tidak cocok!');
       return;
     }
 
     if (newPassword.length < 8) {
-      alert('Password baru minimal 8 karakter!');
+      toast.warning('Password baru minimal 8 karakter!');
       return;
     }
 
-    if (confirm('Ubah password admin?\n\nAnda akan otomatis logout setelah password diubah.')) {
+    const isConfirmed = await confirm({
+      title: "Ubah Password Admin",
+      description: 'Ubah password admin?\n\nAnda akan otomatis logout setelah password diubah.',
+      variant: "warning",
+      confirmText: "Ya, Ubah Password"
+    });
+
+    if (isConfirmed) {
       try {
         await api.post("/admin/change-password", {
           oldPassword,
           newPassword,
         });
 
-        alert('Password admin berhasil diubah!\n\nAnda akan dialihkan ke halaman login...');
+        toast.success('Password admin berhasil diubah!\n\nAnda akan dialihkan ke halaman login...');
         setShowPasswordModal(false);
         setOldPassword('');
         setNewPassword('');
         setConfirmPassword('');
         
-        // Log out admin
-        localStorage.clear();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('role');
         window.location.reload();
       } catch (error: any) {
-        console.error("Gagal mengubah password admin:", error);
-        alert(error.response?.data?.message || "Gagal mengubah password admin. Pastikan password lama sesuai.");
+        console.error("Gagal ubah password admin:", error);
+        toast.error(error.response?.data?.message || "Gagal mengubah password admin");
       }
     }
   };

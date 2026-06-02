@@ -13,12 +13,15 @@ interface TutorDashboardProps {
   onLogout: () => void;
 }
 
+import { useConfirm } from "./context/ConfirmContext";
+
 export default function TutorDashboard({
   currentUser,
   onLogout,
 }: TutorDashboardProps) {
   const [currentPage, setCurrentPage] = useState<Page>("home");
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const confirm = useConfirm();
 
   const handleSubmitAttendance = (data: any) => {
     console.log("Submitting attendance:", data);
@@ -27,8 +30,15 @@ export default function TutorDashboard({
     setTimeout(() => setShowSuccessToast(false), 3000);
   };
 
-  const handleLogout = () => {
-    if (confirm("Apakah Anda yakin ingin keluar?")) {
+  const handleLogout = async () => {
+    const isConfirmed = await confirm({
+      title: "Konfirmasi Logout",
+      description: "Apakah Anda yakin ingin keluar?",
+      variant: "danger",
+      confirmText: "Keluar"
+    });
+    
+    if (isConfirmed) {
       console.log("Logging out...");
       onLogout();
     }

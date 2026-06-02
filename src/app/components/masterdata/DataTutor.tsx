@@ -3,6 +3,8 @@ import { Search, Plus, Edit2, Power, LogIn, Trash2, Eye } from "lucide-react";
 import { ModalTutor } from "./ModalTutor";
 import { Tutor } from "../../data/mockData";
 import api from "../../../services/api";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
 
 interface DataTutorProps {
   searchQuery: string;
@@ -16,6 +18,7 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
   >("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTutor, setSelectedTutor] = useState<Tutor | null>(null);
+  const confirm = useConfirm();
 
   // PREVIEW )
   const [previewTutor, setPreviewTutor] = useState<Tutor | null>(null);
@@ -96,11 +99,11 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
       if (selectedTutor) {
         // UPDATE
         await api.put(`/tutors/${selectedTutor.id}`, tutorData);
-        alert(`Data tutor ${tutorData.nama} berhasil diupdate!`);
+        toast.success(`Data tutor ${tutorData.nama} berhasil diupdate!`);
       } else {
         // CREATE
         await api.post(`/tutors`, tutorData);
-        alert(`Tutor ${tutorData.nama} berhasil ditambahkan!`);
+        toast.success(`Tutor ${tutorData.nama} berhasil ditambahkan!`);
       }
 
       setIsModalOpen(false);
@@ -108,31 +111,33 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
       fetchTutors(); // reload data
     } catch (err: any) {
       console.error("Gagal menyimpan data tutor:", err);
-      alert(err.response?.data?.message || "Gagal menyimpan data tutor");
+      toast.error(err.response?.data?.message || "Gagal menyimpan data tutor");
     }
   };
 
   const handleLoginAs = (tutor: Tutor) => {
-    alert(
+    toast.info(
       `Login sebagai ${tutor.nama}\n\nFitur ini akan membuka akun tutor di tab baru.`,
     );
   };
 
   const handleDelete = async (tutor: Tutor) => {
-    if (
-      !confirm(
-        `Apakah Anda yakin ingin menghapus tutor "${tutor.nama}"?\n\nData yang dihapus tidak dapat dikembalikan.`,
-      )
-    )
-      return;
+    const isConfirmed = await confirm({
+      title: "Hapus Tutor",
+      description: `Apakah Anda yakin ingin menghapus tutor "${tutor.nama}"?\n\nData yang dihapus tidak dapat dikembalikan.`,
+      variant: "danger",
+      confirmText: "Hapus"
+    });
+    
+    if (!isConfirmed) return;
 
     try {
       const res = await api.delete(`/tutors/${tutor.id}`);
-      alert(res.data?.message || `Tutor ${tutor.nama} berhasil dihapus`);
+      toast.success(res.data?.message || `Tutor ${tutor.nama} berhasil dihapus`);
       fetchTutors();
     } catch (error: any) {
       console.error("Gagal hapus tutor:", error);
-      alert(error.response?.data?.message || "Gagal hapus tutor");
+      toast.error(error.response?.data?.message || "Gagal hapus tutor");
     }
   };
 
@@ -140,9 +145,10 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
     try {
       await api.patch(`/tutors/${tutor.id}/status`);
       fetchTutors();
+      toast.success("Status tutor berhasil diubah");
     } catch (error: any) {
       console.error("Gagal ubah status:", error);
-      alert(error.response?.data?.message || "Gagal ubah status");
+      toast.error(error.response?.data?.message || "Gagal ubah status");
     }
   };
 

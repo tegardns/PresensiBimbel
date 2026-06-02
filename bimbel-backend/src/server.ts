@@ -13,6 +13,7 @@ import subjectRoutes from "./routes/subject.routes";
 import attendanceRoutes from "./routes/attendance.routes";
 import financeRoutes from "./routes/finance.routes";
 import adminRoute from "./modules/admin/admin.route";
+import tutorRoute from "./modules/tutor/tutor.route";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoute);
+app.use("/api/tutor", tutorRoute);
 app.use("/api/students", studentRoutes);
 app.use("/api/tutors", tutorRoutes);
 app.use("/api/levels", levelRoutes);

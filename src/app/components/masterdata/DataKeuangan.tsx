@@ -1,6 +1,6 @@
-// PRIVATE_FIXED/src/app/components/masterdata/DataKeuangan.tsx
 import { useEffect, useState } from "react";
 import { Search, Eye, Printer, CheckCircle, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface SesiDetail {
   id: string;
@@ -94,7 +94,7 @@ export function DataKeuangan({
 
   const handleBulkUpdateStatus = async () => {
     if (selectedForUpdate.length === 0) {
-      alert("Pilih minimal 1 transaksi");
+      toast.warning("Pilih minimal 1 transaksi");
       return;
     }
 
@@ -109,11 +109,11 @@ export function DataKeuangan({
         }),
       });
 
-      alert("Status payout berhasil diupdate");
+      toast.success("Status payout berhasil diupdate");
       setSelectedForUpdate([]);
       fetchFinance();
     } catch (error) {
-      alert("Gagal update status");
+      toast.error("Gagal update status");
     }
   };
 
@@ -125,8 +125,9 @@ export function DataKeuangan({
 
       fetchFinance();
       setSelectedTransaction(null);
+      toast.success("Status payout berhasil diupdate");
     } catch (error) {
-      alert("Gagal update status");
+      toast.error("Gagal update status");
     }
   };
 

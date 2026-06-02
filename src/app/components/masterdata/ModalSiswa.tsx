@@ -1,6 +1,6 @@
-// PRIVATE_FIXED/src/app/components/masterdata/ModalSiswa.tsx
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import api from "../../../services/api";
 
 interface Siswa {
@@ -89,17 +89,17 @@ export function ModalSiswa({
     try {
       if (siswa?.id) {
         await api.put(`/students/${siswa.id}`, formData);
-        alert("Data siswa berhasil diupdate!");
+        toast.success("Data siswa berhasil diupdate!");
       } else {
         await api.post("/students", formData);
-        alert("Siswa berhasil ditambahkan!");
+        toast.success("Siswa berhasil ditambahkan!");
       }
 
       onSave();
       onClose();
     } catch (error) {
       console.error("Gagal menyimpan data siswa:", error);
-      alert("Gagal menyimpan data siswa");
+      toast.error("Gagal menyimpan data siswa");
     }
   };
 

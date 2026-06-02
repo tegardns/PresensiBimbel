@@ -1,6 +1,6 @@
-// PRIVATE_FIXED/src/app/components/masterdata/ModalMapel.tsx
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 import api from "../../../services/api";
 import type { Mapel } from "./DataMapel";
 
@@ -71,17 +71,17 @@ export function ModalMapel({
 
       if (mapel) {
         await api.put(`/subjects/${mapel.id}`, payload);
-        alert("Mata pelajaran berhasil diupdate!");
+        toast.success("Mata pelajaran berhasil diupdate!");
       } else {
         await api.post("/subjects", payload);
-        alert("Mata pelajaran berhasil ditambahkan!");
+        toast.success("Mata pelajaran berhasil ditambahkan!");
       }
 
       onSave();
       onClose();
     } catch (error) {
       console.error("Gagal menyimpan mapel:", error);
-      alert("Gagal menyimpan mata pelajaran");
+      toast.error("Gagal menyimpan mata pelajaran");
     } finally {
       setIsSubmitting(false);
     }

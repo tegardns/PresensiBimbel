@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Check, X, Eye, Edit2, AlertTriangle } from 'lucide-react';
+import { toast } from "sonner";
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { ModalEditPresensi } from './ModalEditPresensi';
 import api from '../../../services/api';
+import { useConfirm } from "../../context/ConfirmContext";
 
 interface PresensiPending {
   id: string;
@@ -36,6 +38,7 @@ export function AntreanPersetujuan({ initialData, onRefresh }: AntreanPersetujua
     presensi: null,
   });
   const [alasanPenolakan, setAlasanPenolakan] = useState('');
+  const confirm = useConfirm();
 
   // Sync state with prop
   useEffect(() => {
@@ -54,29 +57,31 @@ export function AntreanPersetujuan({ initialData, onRefresh }: AntreanPersetujua
 
   const handleSetujui = async (presensi: PresensiPending) => {
     if (!presensi.tutorRekeningLengkap) {
-      alert('Tidak dapat menyetujui! Tutor belum melengkapi nomor rekening.');
+      toast.warning('Tidak dapat menyetujui! Tutor belum melengkapi nomor rekening.');
       return;
     }
-    if (
-      confirm(
-        `Setujui presensi ${presensi.id}?\n\nNominal ${formatRupiah(
-          presensi.feeBersih
-        )} akan masuk ke saldo pendapatan tutor.`
-      )
-    ) {
+    
+    const isConfirmed = await confirm({
+      title: "Setujui Presensi",
+      description: `Setujui presensi ${presensi.id}?\n\nNominal ${formatRupiah(presensi.feeBersih)} akan masuk ke saldo pendapatan tutor.`,
+      variant: "success",
+      confirmText: "Ya, Setujui"
+    });
+
+    if (isConfirmed) {
       try {
         await api.post(`/attendances/${presensi.id}/approve`);
-        alert(`Presensi berhasil disetujui!\nSaldo tutor ${presensi.tutorNama} bertambah ${formatRupiah(presensi.feeBersih)}`);
+        toast.success(`Presensi berhasil disetujui!\nSaldo tutor ${presensi.tutorNama} bertambah ${formatRupiah(presensi.feeBersih)}`);
         onRefresh();
       } catch (error: any) {
-        alert(error.response?.data?.message || 'Gagal menyetujui presensi');
+        toast.error(error.response?.data?.message || 'Gagal menyetujui presensi');
       }
     }
   };
 
   const handleTolak = async () => {
     if (!alasanPenolakan.trim()) {
-      alert('Mohon isi alasan penolakan');
+      toast.warning('Mohon isi alasan penolakan');
       return;
     }
     const presensi = rejectModal.presensi;
@@ -86,12 +91,12 @@ export function AntreanPersetujuan({ initialData, onRefresh }: AntreanPersetujua
       await api.post(`/attendances/${presensi.id}/decline`, {
         reason: alasanPenolakan,
       });
-      alert(`Presensi berhasil ditolak!\nAlasan dikirim ke tutor.`);
+      toast.success(`Presensi berhasil ditolak!\nAlasan dikirim ke tutor.`);
       setRejectModal({ open: false, presensi: null });
       setAlasanPenolakan('');
       onRefresh();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Gagal menolak presensi');
+      toast.error(error.response?.data?.message || 'Gagal menolak presensi');
     }
   };
 
@@ -104,11 +109,11 @@ export function AntreanPersetujuan({ initialData, onRefresh }: AntreanPersetujua
         catatan: updated.catatan,
         tanggal: updated.tanggal,
       });
-      alert(`Presensi berhasil diperbarui!`);
+      toast.success(`Presensi berhasil diperbarui!`);
       setEditingPresensi(null);
       onRefresh();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Gagal memperbarui presensi');
+      toast.error(error.response?.data?.message || 'Gagal memperbarui presensi');
     }
   };
 
