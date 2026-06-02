@@ -30,6 +30,7 @@ model Tutor {
   posisi      String?
   status      Boolean      @default(true)
   kode        String       @unique
+  fotoUrl     String?
   createdAt   DateTime     @default(now())
   attendances Attendance[]
   user        User?        @relation(fields: [userId], references: [id])

@@ -221,3 +221,41 @@ export const uploadFileToSupabase = async (
   }
 };
 
+export const uploadPhotoToSupabase = async (
+  fileBuffer: Buffer,
+  fileName: string,
+  contentType: string
+): Promise<string | null> => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.log("⚠️ SUPABASE_URL atau SUPABASE_KEY tidak ditemukan di .env. Lewati upload foto.");
+    return null;
+  }
+
+  const cleanUrl = supabaseUrl.replace(/\/$/, "");
+
+  try {
+    const uploadUrl = `${cleanUrl}/storage/v1/object/Foto/${fileName}`;
+
+    const headers: any = {
+      apikey: supabaseKey,
+      "Content-Type": contentType,
+      "x-upsert": "true",
+    };
+
+    if (supabaseKey.startsWith("eyJ")) {
+      headers["Authorization"] = `Bearer ${supabaseKey}`;
+    }
+
+    await axios.post(uploadUrl, fileBuffer, { headers });
+
+    const publicUrl = `${cleanUrl}/storage/v1/object/public/Foto/${fileName}`;
+    return publicUrl;
+  } catch (error: any) {
+    console.error("❌ Gagal mengunggah foto ke Supabase Storage:", error.response?.data || error.message);
+    return null;
+  }
+};
+

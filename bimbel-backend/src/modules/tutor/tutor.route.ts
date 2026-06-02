@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import prisma from "../../config/prisma";
 import { verifyToken, AuthRequest } from "../../middlewares/auth.middleware";
 import { allowRoles } from "../../middlewares/role.middleware";
-import { uploadFileToSupabase, generatePDFBuffer } from "../../utils/pdfGenerator";
+import { uploadFileToSupabase, uploadPhotoToSupabase, generatePDFBuffer } from "../../utils/pdfGenerator";
 import { getSettings } from "../admin/admin.controller";
 
 const router = Router();
@@ -61,6 +61,41 @@ router.put("/profile", verifyToken, allowRoles("tutor"), async (req: AuthRequest
   } catch (error) {
     console.error("PUT PROFILE ERROR:", error);
     res.status(500).json({ message: "Gagal memperbarui profil tutor" });
+  }
+});
+
+// 2b. UPLOAD TUTOR PROFILE PHOTO
+router.post("/profile/photo", verifyToken, allowRoles("tutor"), upload.single("photo"), async (req: AuthRequest, res) => {
+  try {
+    const tutor = await prisma.tutor.findUnique({
+      where: { userId: req.user.userId },
+    });
+    if (!tutor) {
+      return res.status(404).json({ message: "Profil tutor tidak ditemukan" });
+    }
+
+    const multerFile = (req as any).file;
+    if (!multerFile) {
+      return res.status(400).json({ message: "File foto tidak ditemukan" });
+    }
+
+    const extension = multerFile.originalname.split(".").pop() || "jpg";
+    const fileName = `tutor-${tutor.id}-${Date.now()}.${extension}`;
+    const uploadedUrl = await uploadPhotoToSupabase(multerFile.buffer, fileName, multerFile.mimetype);
+
+    if (!uploadedUrl) {
+      return res.status(500).json({ message: "Gagal mengunggah foto ke storage" });
+    }
+
+    const updated = await prisma.tutor.update({
+      where: { id: tutor.id },
+      data: { fotoUrl: uploadedUrl },
+    });
+
+    res.json({ message: "Foto profil berhasil diperbarui", data: updated });
+  } catch (error) {
+    console.error("UPLOAD PHOTO ERROR:", error);
+    res.status(500).json({ message: "Gagal mengunggah foto profil" });
   }
 });
 
