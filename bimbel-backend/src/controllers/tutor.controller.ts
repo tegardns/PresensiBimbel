@@ -147,16 +147,42 @@ export const deleteTutor = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
 
+    const tutor = await prisma.tutor.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { attendances: true }
+        }
+      }
+    });
+
+    if (!tutor) {
+      return res.status(404).json({ message: "Tutor tidak ditemukan" });
+    }
+
+    if (tutor._count.attendances > 0) {
+      return res.status(400).json({
+        message: "Tutor tidak dapat dihapus karena sudah memiliki riwayat presensi. Silakan nonaktifkan status keaktifannya saja.",
+      });
+    }
+
+    if (tutor.userId) {
+      return res.status(400).json({
+        message: "Tutor tidak dapat dihapus karena memiliki akun login. Silakan hapus akun tutor terlebih dahulu di halaman Pengaturan.",
+      });
+    }
+
     await prisma.tutor.delete({
       where: { id },
     });
 
     res.json({ message: "Tutor berhasil dihapus" });
   } catch (error) {
-    console.error("DELETE ERROR:", error);
+    console.error("DELETE TUTOR ERROR:", error);
     res.status(500).json({ message: "Gagal hapus tutor" });
   }
 };
+
 
 // ==============================
 // TOGGLE STATUS

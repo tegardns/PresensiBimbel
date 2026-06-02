@@ -139,6 +139,27 @@ export const deleteStudent = async (
   try {
     const { id } = req.params;
 
+    const student = await prisma.student.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { attendances: true }
+        }
+      }
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Siswa tidak ditemukan",
+      });
+    }
+
+    if (student._count.attendances > 0) {
+      return res.status(400).json({
+        message: "Siswa tidak dapat dihapus karena sudah memiliki riwayat presensi. Silakan nonaktifkan status keaktifannya saja.",
+      });
+    }
+
     await prisma.student.delete({
       where: {
         id,
@@ -149,13 +170,14 @@ export const deleteStudent = async (
       message: "Siswa berhasil dihapus",
     });
   } catch (error) {
-    console.error(error);
+    console.error("DELETE STUDENT ERROR:", error);
 
     res.status(500).json({
       message: "Gagal menghapus siswa",
     });
   }
 };
+
 
 // ==============================
 // TOGGLE STUDENT STATUS
