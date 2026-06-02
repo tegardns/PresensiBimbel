@@ -443,7 +443,7 @@ router.post("/attendances", verifyToken, allowRoles("tutor"), upload.single("pho
 
     let createdAt = new Date();
     if (date && time) {
-      createdAt = new Date(`${date}T${time}:00`);
+      createdAt = new Date(`${date}T${time}:00Z`);
     }
 
     const attendance = await prisma.attendance.create({
@@ -523,7 +523,7 @@ router.put("/attendances/:id", verifyToken, allowRoles("tutor"), upload.single("
 
     let createdAt = attendance.createdAt;
     if (date && time) {
-      createdAt = new Date(`${date}T${time}:00`);
+      createdAt = new Date(`${date}T${time}:00Z`);
     }
 
     const updated = await prisma.attendance.update({
