@@ -93,13 +93,15 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
     if (!confirm("Yakin hapus siswa?")) return;
 
     try {
-      await api.delete(`/students/${id}`);
+      const res = await api.delete(`/students/${id}`);
+      alert(res.data?.message || "Siswa berhasil dihapus");
       fetchStudents();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gagal hapus siswa:", error);
-      alert("Gagal hapus siswa");
+      alert(error.response?.data?.message || "Gagal hapus siswa");
     }
   };
+
 
   const handleToggleStatus = async (id: string) => {
     try {

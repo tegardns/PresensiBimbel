@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, Plus, Edit2, Power, LogIn, Trash2, Eye } from "lucide-react";
 import { ModalTutor } from "./ModalTutor";
 import { Tutor } from "../../data/mockData";
+import api from "../../../services/api";
 
 interface DataTutorProps {
   searchQuery: string;
@@ -30,8 +31,8 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
   // =========================
   const fetchTutors = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/tutors");
-      const data = await res.json();
+      const res = await api.get("/tutors");
+      const data = res.data;
 
       const mapped: Tutor[] = data.map((t: any) => ({
         id: t.id, // tetap simpan untuk kebutuhan API
@@ -94,29 +95,20 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
     try {
       if (selectedTutor) {
         // UPDATE
-        await fetch(`http://localhost:4000/api/tutors/${selectedTutor.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(tutorData),
-        });
-
+        await api.put(`/tutors/${selectedTutor.id}`, tutorData);
         alert(`Data tutor ${tutorData.nama} berhasil diupdate!`);
       } else {
         // CREATE
-        await fetch(`http://localhost:4000/api/tutors`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(tutorData),
-        });
-
+        await api.post(`/tutors`, tutorData);
         alert(`Tutor ${tutorData.nama} berhasil ditambahkan!`);
       }
 
       setIsModalOpen(false);
       setSelectedTutor(null);
       fetchTutors(); // reload data
-    } catch (err) {
-      alert("Gagal menyimpan data tutor");
+    } catch (err: any) {
+      console.error("Gagal menyimpan data tutor:", err);
+      alert(err.response?.data?.message || "Gagal menyimpan data tutor");
     }
   };
 
@@ -135,28 +127,25 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
       return;
 
     try {
-      await fetch(`http://localhost:4000/api/tutors/${tutor.id}`, {
-        method: "DELETE",
-      });
-
-      alert(`Tutor ${tutor.nama} berhasil dihapus`);
+      const res = await api.delete(`/tutors/${tutor.id}`);
+      alert(res.data?.message || `Tutor ${tutor.nama} berhasil dihapus`);
       fetchTutors();
-    } catch {
-      alert("Gagal hapus tutor");
+    } catch (error: any) {
+      console.error("Gagal hapus tutor:", error);
+      alert(error.response?.data?.message || "Gagal hapus tutor");
     }
   };
 
   const handleToggleStatus = async (tutor: Tutor) => {
     try {
-      await fetch(`http://localhost:4000/api/tutors/${tutor.id}/status`, {
-        method: "PATCH",
-      });
-
+      await api.patch(`/tutors/${tutor.id}/status`);
       fetchTutors();
-    } catch {
-      alert("Gagal ubah status");
+    } catch (error: any) {
+      console.error("Gagal ubah status:", error);
+      alert(error.response?.data?.message || "Gagal ubah status");
     }
   };
+
 
   // =========================
   // UI (100% PUNYA LU)
