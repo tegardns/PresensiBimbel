@@ -111,18 +111,9 @@ export function Sidebar({
             </h1>
           </div>
         )}
-        {collapsed && (
-          logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain mx-auto rounded flex-shrink-0" />
-          ) : (
-            <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-600 font-bold text-sm mx-auto flex-shrink-0">
-              🏢
-            </div>
-          )
-        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 ml-auto"
+          className={`p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 ${collapsed ? "mx-auto" : "ml-auto"}`}
         >
           {collapsed ? (
             <ChevronRight className="w-5 h-5" />
