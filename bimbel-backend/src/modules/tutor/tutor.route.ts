@@ -134,7 +134,7 @@ router.get("/sessions", verifyToken, allowRoles("tutor"), async (req: AuthReques
 
     const result = sessions.map((s) => ({
       id: s.id,
-      date: s.createdAt.toISOString().split("T")[0],
+      date: s.createdAt.toISOString(),
       sessionId: `SES-${s.createdAt.toISOString().split("T")[0].replace(/-/g, "")}-${s.id.substring(0, 4).toUpperCase()}`,
       amount: s.feeNet,
       status: s.status,

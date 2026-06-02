@@ -212,11 +212,10 @@ export default function AddAttendancePage({ onBack, onSubmit }: AddAttendancePag
               <button
                 key={dur}
                 onClick={() => setDuration(dur)}
-                className={`py-3 rounded-xl border-2 transition-colors ${
-                  duration === dur
+                className={`py-3 rounded-xl border-2 transition-colors ${duration === dur
                     ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {dur}
               </button>

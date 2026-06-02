@@ -37,7 +37,7 @@ export default function TutorDashboard({
       variant: "danger",
       confirmText: "Keluar"
     });
-    
+
     if (isConfirmed) {
       console.log("Logging out...");
       onLogout();
@@ -77,11 +77,10 @@ export default function TutorDashboard({
             {/* Beranda */}
             <button
               onClick={() => setCurrentPage("home")}
-              className={`flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-colors ${
-                currentPage === "home"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-colors ${currentPage === "home"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               <Home className="size-6" />
               <span className="text-xs font-medium">Beranda</span>
@@ -98,11 +97,10 @@ export default function TutorDashboard({
             {/* Riwayat */}
             <button
               onClick={() => setCurrentPage("history")}
-              className={`flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-colors ${
-                currentPage === "history"
-                  ? "text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-colors ${currentPage === "history"
+                ? "text-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+                }`}
             >
               <Clock className="size-6" />
               <span className="text-xs font-medium">Riwayat</span>
@@ -114,7 +112,7 @@ export default function TutorDashboard({
       {/* Success Toast */}
       {showSuccessToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in">
-          ✓ Presensi berhasil disimpan
+          ✓ Presensi Berhasil
         </div>
       )}
     </div>
