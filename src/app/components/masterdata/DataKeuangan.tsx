@@ -1,3 +1,4 @@
+// PresensiBimbel/src/app/components/masterdata/DataKeuangan.tsx
 import { useEffect, useState } from "react";
 import { Search, Eye, Printer, CheckCircle, X } from "lucide-react";
 import { toast } from "sonner";
@@ -50,9 +51,41 @@ export function DataKeuangan({
     try {
       const res = await fetch("http://localhost:4000/api/finance");
       const data = await res.json();
-      setTransactions(Array.isArray(data) ? data : []);
+
+      const payoutList = Array.isArray(data)
+        ? data
+        : Array.isArray(data.payout)
+          ? data.payout
+          : [];
+
+      const mapped: Keuangan[] = payoutList.map((item: any) => ({
+        id: item.id || "-",
+        tutorId: item.tutorId || "-",
+        tutorNama: item.tutorName || item.tutorNama || "-",
+        namaBank: item.namaBank || "-",
+        noRekening: item.rekening || item.noRekening || "-",
+        totalNominal: Number(item.totalNominal || 0),
+        tanggalPayout: item.tanggalTransfer || item.tanggalPayout || "",
+        status:
+          item.status === "sudah-payout" || item.status === "paid"
+            ? "sudah-payout"
+            : "diproses",
+        sesiList: Array.isArray(item.sessions)
+          ? item.sessions.map((session: any, index: number) => ({
+            id: session.id || `SES-${String(index + 1).padStart(3, "0")}`,
+            siswaNama: session.siswa || session.siswaNama || "-",
+            mapelNama: session.mapel || session.mapelNama || "-",
+            tanggal: session.tanggal || "",
+            durasi: Number(session.durasi || 0),
+            feeBersih: Number(session.fee || session.feeBersih || 0),
+          }))
+          : [],
+      }));
+
+      setTransactions(mapped);
     } catch (error) {
-      console.log("Gagal ambil data keuangan");
+      console.error("Gagal ambil data keuangan:", error);
+      setTransactions([]);
     }
   };
 
@@ -290,7 +323,7 @@ export function DataKeuangan({
                   </td>
 
                   <td className="px-6 py-4">
-                    <div className="flex gap-2">
+                    <div className="flex">
                       <button
                         onClick={() => setSelectedTransaction(keuangan)}
                         className="p-2 hover:bg-blue-100 rounded-lg"
@@ -307,7 +340,7 @@ export function DataKeuangan({
                           onClick={() => updateSingleStatus(keuangan.id)}
                           className="p-2 hover:bg-green-100 rounded-lg"
                         >
-                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          {/* <CheckCircle className="w-4 h-4 text-green-600" /> */}
                         </button>
                       )}
                     </div>
