@@ -15,6 +15,23 @@ interface TutorAccount {
   lastLogin?: string;
 }
 
+const formatLastLogin = (dateStr?: string) => {
+  if (!dateStr || dateStr === '-') return '-';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }) + ' WIB';
+  } catch (e) {
+    return dateStr;
+  }
+};
+
 export function KeamananAkun() {
   const [tutorAccounts, setTutorAccounts] = useState<TutorAccount[]>([]);
   const [availableTutors, setAvailableTutors] = useState<any[]>([]);
@@ -263,7 +280,7 @@ export function KeamananAkun() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500 font-mono">
-                    {account.lastLogin || '-'}
+                    {formatLastLogin(account.lastLogin)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -367,7 +384,7 @@ export function KeamananAkun() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <span className="text-gray-500 font-medium">Last Login</span>
-                <span className="col-span-2 text-gray-800">{viewingAccount.lastLogin || '-'}</span>
+                <span className="col-span-2 text-gray-800">{formatLastLogin(viewingAccount.lastLogin)}</span>
               </div>
             </div>
             <div className="p-6 border-t border-gray-200">

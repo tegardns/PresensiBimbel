@@ -25,6 +25,7 @@ interface PayoutHistory {
   periodeEnd: string;
   tanggalTransfer: string;
   sessions: SessionDetail[];
+  pdfUrl?: string | null;
 }
 
 interface RiwayatPembayaranProps {
@@ -40,6 +41,7 @@ export function RiwayatPembayaran({ data }: RiwayatPembayaranProps) {
   // Custom settings states for printed payroll template
   const [namaBimbel, setNamaBimbel] = useState('BimbelMelly');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [komisiAdmin, setKomisiAdmin] = useState(10);
 
   useEffect(() => {
     const fetchTutorsAndSettings = async () => {
@@ -58,6 +60,7 @@ export function RiwayatPembayaran({ data }: RiwayatPembayaranProps) {
         if (settingsRes.data) {
           setNamaBimbel(settingsRes.data.namaBimbel || 'BimbelMelly');
           setLogoUrl(settingsRes.data.logoUrl || null);
+          setKomisiAdmin(settingsRes.data.komisiAdmin !== undefined ? settingsRes.data.komisiAdmin : 10);
         }
       } catch (error) {
         console.error("Gagal memuat mapping tutor atau settings:", error);
@@ -120,310 +123,11 @@ export function RiwayatPembayaran({ data }: RiwayatPembayaranProps) {
   };
 
   const handleCetakSlip = (payout: PayoutHistory) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Gagal membuka halaman cetak. Pastikan pop-up blocker Anda dinonaktifkan.');
-      return;
+    if (payout.pdfUrl) {
+      window.open(payout.pdfUrl, '_blank');
+    } else {
+      toast.error('File PDF slip gaji belum diunggah ke Supabase atau URL tidak tersedia. Anda bisa klik Send untuk memicu pengunggahan kembali.');
     }
-
-    const sessionRows = payout.sessions.map(session => `
-      <tr>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${formatDate(session.tanggal)}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${session.siswa}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${session.mapel}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${session.durasi} menit</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;" class="text-right">${formatRupiah(session.fee)}</td>
-      </tr>
-    `).join('');
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="id">
-      <head>
-        <meta charset="UTF-8">
-        <title>Slip Gaji - ${payout.id}</title>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <style>
-          body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            margin: 0;
-            padding: 30px;
-            color: #1e293b;
-            background-color: #ffffff;
-            line-height: 1.5;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 16px;
-            margin-bottom: 24px;
-          }
-          .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-          .logo-img {
-            max-height: 48px;
-            object-fit: contain;
-            border-radius: 4px;
-          }
-          .logo-emoji {
-            font-size: 32px;
-          }
-          .company-name {
-            font-size: 22px;
-            font-weight: 700;
-            color: #2563eb;
-          }
-          .document-title {
-            text-align: right;
-          }
-          .document-title h2 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 700;
-            color: #0f172a;
-            letter-spacing: -0.5px;
-          }
-          .document-title p {
-            margin: 4px 0 0 0;
-            font-size: 12px;
-            color: #64748b;
-            font-family: monospace;
-          }
-          .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            margin-bottom: 24px;
-          }
-          .info-card {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 16px;
-          }
-          .info-card h4 {
-            margin: 0 0 10px 0;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-          }
-          .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 6px;
-            font-size: 13px;
-          }
-          .info-row:last-child {
-            margin-bottom: 0;
-          }
-          .info-label {
-            color: #64748b;
-          }
-          .info-value {
-            font-weight: 600;
-            color: #0f172a;
-          }
-          .table-container {
-            margin-bottom: 24px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            overflow: hidden;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-          th {
-            background-color: #f1f5f9;
-            padding: 10px 12px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #475569;
-            text-transform: uppercase;
-            text-align: left;
-            border-bottom: 2px solid #cbd5e1;
-          }
-          .text-right {
-            text-align: right;
-          }
-          .total-box {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 30px;
-          }
-          .total-card {
-            background-color: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            border-radius: 8px;
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            gap: 24px;
-          }
-          .total-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #065f46;
-          }
-          .total-amount {
-            font-size: 20px;
-            font-weight: 700;
-            color: #047857;
-          }
-          .signature-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 80px;
-            text-align: center;
-            margin-top: 40px;
-            font-size: 13px;
-          }
-          .signature-box {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-          }
-          .signature-line {
-            margin-top: 60px;
-            width: 160px;
-            border-bottom: 1px solid #0f172a;
-          }
-          .signature-name {
-            margin-top: 6px;
-            font-weight: 600;
-          }
-          .signature-title {
-            font-size: 11px;
-            color: #64748b;
-          }
-          @media print {
-            body {
-              padding: 10px;
-            }
-            .info-card {
-              background-color: #ffffff !important;
-              print-color-adjust: exact;
-              -webkit-print-color-adjust: exact;
-            }
-            .total-card {
-              background-color: #ecfdf5 !important;
-              print-color-adjust: exact;
-              -webkit-print-color-adjust: exact;
-            }
-            th {
-              background-color: #f1f5f9 !important;
-              print-color-adjust: exact;
-              -webkit-print-color-adjust: exact;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="logo-container">
-            ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo-img" />` : `<span class="logo-emoji">🏢</span>`}
-            <span class="company-name">${namaBimbel}</span>
-          </div>
-          <div class="document-title">
-            <h2>SLIP GAJI TUTOR</h2>
-            <p>${payout.id}</p>
-          </div>
-        </div>
-
-        <div class="info-grid">
-          <div class="info-card">
-            <h4>Penerima Payout</h4>
-            <div class="info-row">
-              <span class="info-label">Nama Tutor</span>
-              <span class="info-value">${payout.tutorNama}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Kode Tutor</span>
-              <span class="info-value">${payout.tutorKode || '-'}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Rekening</span>
-              <span class="info-value">${payout.namaBank} - ${payout.noRekening}</span>
-            </div>
-          </div>
-
-          <div class="info-card">
-            <h4>Detail Pembayaran</h4>
-            <div class="info-row">
-              <span class="info-label">Periode</span>
-              <span class="info-value">${getCyclePeriod(payout.periodeStart, payout.periodeEnd)}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Tanggal Transfer</span>
-              <span class="info-value">${formatDate(payout.tanggalTransfer)}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Status</span>
-              <span class="info-value" style="color: #059669;">LUNAS / BERHASIL</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Tanggal</th>
-                <th>Siswa</th>
-                <th>Mata Pelajaran</th>
-                <th>Durasi</th>
-                <th class="text-right">Fee</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sessionRows}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="total-box">
-          <div class="total-card">
-            <span class="total-label">Total Bersih Ditransfer</span>
-            <span class="total-amount">${formatRupiah(payout.totalNominal)}</span>
-          </div>
-        </div>
-
-        <div class="signature-grid">
-          <div class="signature-box">
-            <span>Penerima</span>
-            <div class="signature-line"></div>
-            <span class="signature-name">${payout.tutorNama}</span>
-            <span class="signature-title">Tutor</span>
-          </div>
-          <div class="signature-box">
-            <span>Hormat Kami,</span>
-            <div class="signature-line"></div>
-            <span class="signature-name">${namaBimbel} Admin</span>
-            <span class="signature-title">Manajemen Keuangan</span>
-          </div>
-        </div>
-
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-              window.close();
-            }, 300);
-          };
-        </script>
-      </body>
-      </html>
-    `;
-
-    printWindow.document.open();
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
   };
 
 
@@ -601,7 +305,7 @@ export function RiwayatPembayaran({ data }: RiwayatPembayaranProps) {
                     </tbody>
                     <tfoot className="bg-gray-50 border-t-2 border-gray-300">
                       <tr>
-                        <td colSpan={4} className="px-4 py-3 text-right font-semibold">Total Fee Tutor (90%):</td>
+                        <td colSpan={4} className="px-4 py-3 text-right font-semibold">Total Fee Tutor ({100 - komisiAdmin}%):</td>
                         <td className="px-4 py-3 text-right font-bold text-green-600 text-lg">
                           {formatRupiah(selectedPayout.totalNominal)}
                         </td>
@@ -613,7 +317,7 @@ export function RiwayatPembayaran({ data }: RiwayatPembayaranProps) {
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-700">
-                  <strong>Catatan:</strong> Fee tutor adalah 90% dari total pembayaran siswa. 10% sisanya menjadi profit admin.
+                  <strong>Catatan:</strong> Fee tutor adalah {100 - komisiAdmin}% dari total pembayaran siswa. {komisiAdmin}% sisanya menjadi profit admin.
                 </p>
               </div>
 

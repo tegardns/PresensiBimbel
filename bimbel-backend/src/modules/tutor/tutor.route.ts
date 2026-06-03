@@ -223,8 +223,13 @@ router.get("/payouts", verifyToken, allowRoles("tutor"), async (req: AuthRequest
       if (item.status === "disetujui") {
         const key = "UNPAID";
         if (!groupedPayout.has(key)) {
+          const nowForId = new Date();
+          const yyForId = nowForId.getFullYear().toString().slice(-2);
+          const mmForId = String(nowForId.getMonth() + 1).padStart(2, "0");
+          const ddForId = String(nowForId.getDate()).padStart(2, "0");
+          const tutorNum = tutor ? tutor.kode.replace(/\D/g, "").slice(-2).padStart(2, "0") : "00";
           groupedPayout.set(key, {
-            id: `TRX-UNPAID`,
+            id: `TRX-${yyForId}${mmForId}${ddForId}${tutorNum}-UNPAID`,
             transactionId: "PENDING-PAYOUT",
             date: new Date().toISOString().split("T")[0],
             amount: 0,
@@ -302,14 +307,18 @@ router.get("/payouts", verifyToken, allowRoles("tutor"), async (req: AuthRequest
     for (const hist of historyList) {
       if (!hist.id) {
         // Fallback for legacy history
-        const cycleSundayFormatted = hist.date.replace(/-/g, "");
-        hist.id = `TRX-${cycleSundayFormatted}-PAID`;
-        hist.transactionId = `TRX-${cycleSundayFormatted}`;
+        const yearRaw = hist.date.split("-")[0];
+        const yy = yearRaw.slice(-2);
+        const mm = hist.date.split("-")[1];
+        const dd = hist.date.split("-")[2];
+        const tutorNum = tutor ? tutor.kode.replace(/\D/g, "").slice(-2).padStart(2, "0") : "00";
+        hist.id = `TRX-${yy}${mm}${dd}${tutorNum}-PAID`;
+        hist.transactionId = `TRX-${yy}${mm}${dd}${tutorNum}-PAID`;
       }
       
       const fileName = `${hist.id}.pdf`; // ID is equivalent to the full payout ID including suffixes
       if (cleanSupabaseUrl) {
-        hist.pdfUrl = `${cleanSupabaseUrl}/storage/v1/object/public/slips/${fileName}`;
+        hist.pdfUrl = `${cleanSupabaseUrl}/storage/v1/object/public/Slips/${fileName}`;
       } else {
         hist.pdfUrl = null;
       }
@@ -331,12 +340,13 @@ router.get("/payouts/:payoutId/pdf", verifyToken, allowRoles("tutor"), async (re
   try {
     const payoutId = req.params.payoutId as string;
 
-    // Parse the date (cycle Sunday) from the payoutId: TRX-YYYYMMDD or TRX-YYYYMMDD-PAID
-    const matchData = payoutId.match(/^TRX-(\d{4})(\d{2})(\d{2})/);
+    // Parse the date (cycle Sunday) from the payoutId: TRX-YYMMDD or TRX-YYYYMMDD
+    const matchData = payoutId.match(/^TRX-(\d{2,4})(\d{2})(\d{2})/);
     if (!matchData) {
       return res.status(400).json({ message: "Format ID Payout tidak valid" });
     }
-    const [, year, month, day] = matchData;
+    const [, yearRaw, month, day] = matchData;
+    const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
     const cycleSunday = `${year}-${month}-${day}`;
 
     const tutor = await prisma.tutor.findUnique({

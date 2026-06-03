@@ -36,6 +36,7 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
   const [editingSiswa, setEditingSiswa] = useState<Siswa | null>(null);
   const [students, setStudents] = useState<Siswa[]>([]);
   const confirm = useConfirm();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchStudents();
@@ -43,6 +44,7 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
 
   const fetchStudents = async () => {
     try {
+      setIsLoading(true);
       const res = await api.get("/students");
       const data = res.data;
 
@@ -62,6 +64,8 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
       setStudents(mapped);
     } catch (error) {
       console.error("Gagal ambil data siswa:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -200,7 +204,20 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {filteredSiswa.map((siswa) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-gray-500 font-medium">
+                    sedang memuat data
+                  </td>
+                </tr>
+              ) : filteredSiswa.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-gray-500">
+                    Tidak ada data siswa yang ditemukan
+                  </td>
+                </tr>
+              ) : (
+                filteredSiswa.map((siswa) => (
                 <tr key={siswa.kode}>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {siswa.kode}
@@ -268,16 +285,12 @@ export function DataSiswa({ searchQuery, setSearchQuery }: DataSiswaProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
 
-        {filteredSiswa.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            Tidak ada data siswa yang ditemukan
-          </div>
-        )}
+
       </div>
 
       {selectedSiswa && (

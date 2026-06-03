@@ -55,8 +55,9 @@ export function ModalEditPresensi({ isOpen, onClose, presensi, onSave }: ModalEd
   const [formData, setFormData] = useState<PresensiPending | null>(null);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [levels, setLevels] = useState<LevelItem[]>([]);
+  const [originalPotongan, setOriginalPotongan] = useState<number>(10);
 
-  const calculateFee = (levelName: string, durasi: number) => {
+  const calculateFee = (levelName: string, durasi: number, potonganOverride?: number) => {
     let cleanLevel = 'SD';
     if (levelName.toUpperCase().includes('CALISTUNG')) cleanLevel = 'Calistung';
     else if (levelName.toUpperCase().includes('SD')) cleanLevel = 'SD';
@@ -65,9 +66,10 @@ export function ModalEditPresensi({ isOpen, onClose, presensi, onSave }: ModalEd
 
     const dbLevel = levels.find((l) => l.name.toUpperCase() === cleanLevel.toUpperCase());
 
+    const potongan = potonganOverride !== undefined ? potonganOverride : (dbLevel ? dbLevel.potonganAdmin : (cleanLevel === 'Calistung' ? 20 : 10));
+
     if (!dbLevel) {
       const pricing = levelPricing[cleanLevel as keyof typeof levelPricing] || levelPricing['SD'];
-      const potongan = cleanLevel === 'Calistung' ? 20 : 10;
       const baseDurasi = cleanLevel === 'Calistung' ? 75 : 60;
       const hargaPerMenit = pricing.harga / baseDurasi;
       const total = hargaPerMenit * durasi;
@@ -76,7 +78,7 @@ export function ModalEditPresensi({ isOpen, onClose, presensi, onSave }: ModalEd
 
     const hargaPerMenit = dbLevel.hargaJual / dbLevel.durasiMenit;
     const total = hargaPerMenit * durasi;
-    return Math.round(total * ((100 - dbLevel.potonganAdmin) / 100));
+    return Math.round(total * ((100 - potongan) / 100));
   };
 
   const getPotonganAdmin = (levelName: string) => {
@@ -111,7 +113,7 @@ export function ModalEditPresensi({ isOpen, onClose, presensi, onSave }: ModalEd
   }, [isOpen]);
 
   useEffect(() => {
-    if (presensi) {
+    if (presensi && levels.length > 0) {
       // Ensure ISO date is formatted for date input (YYYY-MM-DD)
       let formattedDate = '';
       try {
@@ -123,11 +125,28 @@ export function ModalEditPresensi({ isOpen, onClose, presensi, onSave }: ModalEd
       const isCalistung = presensi.level.toUpperCase().includes('CALISTUNG');
       const finalDurasi = isCalistung ? 75 : presensi.durasi;
       
+      // Derive original potongan from feeNet and current level price
+      let cleanLevel = 'SD';
+      if (presensi.level.toUpperCase().includes('CALISTUNG')) cleanLevel = 'Calistung';
+      else if (presensi.level.toUpperCase().includes('SD')) cleanLevel = 'SD';
+      else if (presensi.level.toUpperCase().includes('SMP')) cleanLevel = 'SMP';
+      else if (presensi.level.toUpperCase().includes('SMA')) cleanLevel = 'SMA';
+
+      const dbLevel = levels.find((l) => l.name.toUpperCase() === cleanLevel.toUpperCase());
+      let derivedPotongan = dbLevel ? dbLevel.potonganAdmin : (cleanLevel === 'Calistung' ? 20 : 10);
+      if (dbLevel) {
+        const gross = (dbLevel.hargaJual / dbLevel.durasiMenit) * finalDurasi;
+        if (gross > 0) {
+          derivedPotongan = Math.round(100 - (presensi.feeBersih / gross) * 100);
+        }
+      }
+      setOriginalPotongan(derivedPotongan);
+
       setFormData({
         ...presensi,
         tanggal: formattedDate,
         durasi: finalDurasi,
-        feeBersih: calculateFee(presensi.level, finalDurasi),
+        feeBersih: presensi.feeBersih, // Preserve the original database value!
       });
     }
   }, [presensi, levels]);
@@ -135,7 +154,7 @@ export function ModalEditPresensi({ isOpen, onClose, presensi, onSave }: ModalEd
   if (!isOpen || !presensi || !formData) return null;
 
   const handleDurasiChange = (durasi: number) => {
-    const feeBersih = calculateFee(formData.level, durasi);
+    const feeBersih = calculateFee(formData.level, durasi, originalPotongan);
     setFormData({ ...formData, durasi, feeBersih });
   };
 
@@ -363,7 +382,7 @@ export function ModalEditPresensi({ isOpen, onClose, presensi, onSave }: ModalEd
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-green-800">
-                      Fee Bersih Tutor (Potongan {getPotonganAdmin(formData.level)}%)
+                      Fee Bersih Tutor (Potongan {originalPotongan}%)
                     </p>
                     <p className="text-xs text-green-600 mt-0.5 font-medium">
                       Perhitungan: {formData.durasi} menit × tarif level {formData.level}

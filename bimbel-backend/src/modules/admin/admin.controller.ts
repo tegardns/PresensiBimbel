@@ -23,7 +23,7 @@ export const getTutorAccounts = async (req: Request, res: Response) => {
         nama: tutor ? tutor.nama : "Tutor",
         email: tutor ? tutor.email : user.email,
         status: user.isActive ? "aktif" : "nonaktif",
-        lastLogin: "-",
+        lastLogin: user.lastLogin ? user.lastLogin.toISOString() : "-",
       };
     });
 
@@ -282,6 +282,14 @@ export const updateSettings = async (req: Request, res: Response) => {
         maintenance: !!maintenance,
       },
     });
+
+    if (komisiAdmin !== undefined) {
+      await prisma.level.updateMany({
+        data: {
+          potonganAdmin: Math.round(parseFloat(komisiAdmin)),
+        },
+      });
+    }
 
     res.json({ message: "Pengaturan berhasil diperbarui", setting });
   } catch (error) {

@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { TrendingUp, DollarSign, Calendar, Download } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
+import api from '../../../services/api';
 
 const monthlyData = [
   { id: 'month-jan', bulan: 'Jan', grossRevenue: 8400000, adminProfit: 840000 },
@@ -46,6 +48,22 @@ interface LaporanPendapatanProps {
 }
 
 export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
+  const [komisiAdmin, setKomisiAdmin] = useState(10);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/admin/settings');
+        if (res.data && res.data.komisiAdmin !== undefined) {
+          setKomisiAdmin(res.data.komisiAdmin);
+        }
+      } catch (error) {
+        console.error("Gagal memuat setting untuk LaporanPendapatan:", error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -98,7 +116,7 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm text-blue-100">Profit Admin (10%) {latestMonthName}</p>
+              <p className="text-sm text-blue-100">Profit Admin ({komisiAdmin}%) {latestMonthName}</p>
               <p className="text-3xl font-bold">{formatRupiah(totalProfitApril)}</p>
             </div>
           </div>
@@ -164,7 +182,7 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
               dataKey="adminProfit"
               stroke="#2563EB"
               strokeWidth={3}
-              name="Admin Profit (10%)"
+              name={`Admin Profit (${komisiAdmin}%)`}
               dot={{ fill: '#2563EB', r: 5 }}
             />
           </LineChart>
@@ -199,7 +217,7 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Nama Tutor</th>
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Jumlah Sesi</th>
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Total Gross Revenue</th>
-                <th className="text-left px-6 py-4 text-sm text-gray-600">Admin Share (20%)</th>
+                <th className="text-left px-6 py-4 text-sm text-gray-600">Admin Share ({komisiAdmin}%)</th>
                 <th className="text-left px-6 py-4 text-sm text-gray-600">Kontribusi</th>
               </tr>
             </thead>
@@ -279,8 +297,8 @@ export function LaporanPendapatan({ data }: LaporanPendapatanProps = {}) {
             <h4 className="font-medium text-blue-900 mb-1">Catatan Perhitungan</h4>
             <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
               <li><strong>Gross Revenue:</strong> Total pembayaran dari siswa untuk semua sesi bimbingan</li>
-              <li><strong>Fee Tutor:</strong> 90% dari gross revenue yang dibayarkan kepada tutor</li>
-              <li><strong>Admin Profit:</strong> 10% dari gross revenue sebagai potongan admin</li>
+              <li><strong>Fee Tutor:</strong> {100 - komisiAdmin}% dari gross revenue yang dibayarkan kepada tutor</li>
+              <li><strong>Admin Profit:</strong> {komisiAdmin}% dari gross revenue sebagai potongan admin</li>
               <li>Payout dilakukan setiap minggu dengan periode Minggu - Sabtu</li>
             </ul>
           </div>

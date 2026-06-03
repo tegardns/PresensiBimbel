@@ -101,21 +101,22 @@ export function Sidebar({
     <div
       className={`h-screen bg-white border-r border-gray-200 transition-all duration-300 ${collapsed ? "w-20" : "w-64"} flex flex-col`}
     >
-      <div className="p-6 border-b border-gray-200 flex items-center justify-between gap-2 overflow-hidden">
-        {!collapsed && (
-          <div className="flex items-center gap-2.5 overflow-hidden flex-1">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain rounded flex-shrink-0" />
-            ) : (
-              <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-blue-600 font-bold text-sm flex-shrink-0">
-                🏢
-              </div>
-            )}
-            <h1 className="font-bold text-blue-600 truncate text-base" title={namaBimbel}>
-              {namaBimbel}
-            </h1>
-          </div>
-        )}
+      <div className={`p-4 border-b border-gray-200 flex ${collapsed ? "flex-col gap-3 items-center" : "items-center justify-between"} overflow-hidden`}>
+        <div className="flex items-center justify-center overflow-hidden">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Logo"
+              className={`${collapsed ? "w-9 h-9" : "w-12 h-12"} object-contain rounded-lg flex-shrink-0 transition-all duration-300`}
+            />
+          ) : (
+            <div
+              className={`${collapsed ? "w-9 h-9 text-base" : "w-10 h-10 text-lg"} bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold flex-shrink-0 transition-all duration-300`}
+            >
+              🏢
+            </div>
+          )}
+        </div>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={`p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 ${collapsed ? "mx-auto" : "ml-auto"}`}

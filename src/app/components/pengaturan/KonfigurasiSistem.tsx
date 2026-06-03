@@ -65,9 +65,10 @@ export function KonfigurasiSistem({
                   min="0"
                   max="100"
                   step="0.5"
-                  value={komisiAdmin}
+                  value={isNaN(komisiAdmin) ? '' : komisiAdmin}
                   onChange={(e) => {
-                    setKomisiAdmin(parseFloat(e.target.value));
+                    const val = parseFloat(e.target.value);
+                    setKomisiAdmin(isNaN(val) ? 0 : val);
                     onChangeDetected();
                   }}
                   className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -78,10 +79,10 @@ export function KonfigurasiSistem({
               </div>
               <div className="flex-1">
                 <p className="text-sm text-gray-600">
-                  Fee Tutor: <strong className="text-green-600">{(100 - komisiAdmin).toFixed(1)}%</strong>
+                  Fee Tutor: <strong className="text-green-600">{(100 - (isNaN(komisiAdmin) ? 0 : komisiAdmin)).toFixed(1)}%</strong>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Komisi Admin: <strong className="text-blue-600">{komisiAdmin}%</strong>
+                  Komisi Admin: <strong className="text-blue-600">{isNaN(komisiAdmin) ? 0 : komisiAdmin}%</strong>
                 </p>
               </div>
             </div>

@@ -160,7 +160,7 @@ export const uploadToSupabase = async (
   const cleanUrl = supabaseUrl.replace(/\/$/, "");
 
   try {
-    const uploadUrl = `${cleanUrl}/storage/v1/object/slips/${fileName}`;
+    const uploadUrl = `${cleanUrl}/storage/v1/object/Slips/${fileName}`;
 
     const headers: any = {
       apikey: supabaseKey,
@@ -175,7 +175,7 @@ export const uploadToSupabase = async (
     await axios.post(uploadUrl, pdfBuffer, { headers });
 
     // Public URL to retrieve the uploaded file
-    const publicUrl = `${cleanUrl}/storage/v1/object/public/slips/${fileName}`;
+    const publicUrl = `${cleanUrl}/storage/v1/object/public/Slips/${fileName}`;
     return publicUrl;
   } catch (error: any) {
     console.error("❌ Gagal mengunggah PDF ke Supabase Storage:", error.response?.data || error.message);
@@ -258,4 +258,39 @@ export const uploadPhotoToSupabase = async (
     return null;
   }
 };
+
+export const deleteFileFromSupabase = async (
+  bucket: string,
+  fileName: string
+): Promise<boolean> => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.log("⚠️ SUPABASE_URL atau SUPABASE_KEY tidak ditemukan di .env. Lewati delete file.");
+    return false;
+  }
+
+  const cleanUrl = supabaseUrl.replace(/\/$/, "");
+
+  try {
+    const deleteUrl = `${cleanUrl}/storage/v1/object/${bucket}/${fileName}`;
+
+    const headers: any = {
+      apikey: supabaseKey,
+    };
+
+    if (supabaseKey.startsWith("eyJ")) {
+      headers["Authorization"] = `Bearer ${supabaseKey}`;
+    }
+
+    await axios.delete(deleteUrl, { headers });
+    console.log(`✅ Berhasil menghapus file ${fileName} dari bucket ${bucket}`);
+    return true;
+  } catch (error: any) {
+    console.error(`❌ Gagal menghapus file ${fileName} dari bucket ${bucket}:`, error.response?.data || error.message);
+    return false;
+  }
+};
+
 

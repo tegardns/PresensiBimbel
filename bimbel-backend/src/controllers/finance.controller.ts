@@ -2,7 +2,8 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma";
 import axios from "axios";
-import { generatePDFBuffer, uploadToSupabase } from "../utils/pdfGenerator";
+import { generatePDFBuffer, uploadToSupabase, deleteFileFromSupabase } from "../utils/pdfGenerator";
+
 
 // Helper to calculate cycle Sunday date
 const getCycleSundayStr = (date: Date) => {
@@ -153,10 +154,17 @@ export const getFinance = async (req: Request, res: Response) => {
     });
 
     // Convert map to arrays and add transaction IDs
-    const payoutList = Array.from(groupedPayout.values()).map((item, index) => ({
-      ...item,
-      id: `TRX-${new Date().getFullYear()}${String(index + 1).padStart(3, "0")}-UNPAID`,
-    }));
+    const nowForId = new Date();
+    const yyForId = nowForId.getFullYear().toString().slice(-2);
+    const mmForId = String(nowForId.getMonth() + 1).padStart(2, "0");
+    const ddForId = String(nowForId.getDate()).padStart(2, "0");
+    const payoutList = Array.from(groupedPayout.values()).map((item) => {
+      const tutorNum = item.tutorKode ? item.tutorKode.replace(/\D/g, "").slice(-2).padStart(2, "0") : "00";
+      return {
+        ...item,
+        id: `TRX-${yyForId}${mmForId}${ddForId}${tutorNum}-UNPAID`,
+      };
+    });
 
     // We no longer group history by week. We just convert the map to an array.
     const historyList: any[] = [];
@@ -165,14 +173,18 @@ export const getFinance = async (req: Request, res: Response) => {
     for (const hist of Array.from(groupedHistory.values())) {
       if (!hist.id) {
         // Fallback for legacy history without payoutId
-        const cycleSundayFormatted = hist.periodeStart.replace(/-/g, "");
-        hist.id = `TRX-${cycleSundayFormatted}-${hist.tutorKode}-PAID`;
-        hist.transactionId = `TRX-${cycleSundayFormatted}-${hist.tutorKode}-PAID`;
+        const yearRaw = hist.periodeStart.split("-")[0];
+        const yy = yearRaw.slice(-2);
+        const mm = hist.periodeStart.split("-")[1];
+        const dd = hist.periodeStart.split("-")[2];
+        const tutorNum = hist.tutorKode ? hist.tutorKode.replace(/\D/g, "").slice(-2).padStart(2, "0") : "00";
+        hist.id = `TRX-${yy}${mm}${dd}${tutorNum}-PAID`;
+        hist.transactionId = `TRX-${yy}${mm}${dd}${tutorNum}-PAID`;
       }
       
       const fileName = `${hist.transactionId}.pdf`;
       if (cleanSupabaseUrl) {
-        hist.pdfUrl = `${cleanSupabaseUrl}/storage/v1/object/public/slips/${fileName}`;
+        hist.pdfUrl = `${cleanSupabaseUrl}/storage/v1/object/public/Slips/${fileName}`;
       } else {
         hist.pdfUrl = null;
       }
@@ -401,11 +413,20 @@ export const processPayout = async (req: Request, res: Response) => {
     const dates = attendances.map(a => new Date(a.createdAt).getTime());
     const minDate = new Date(Math.min(...dates));
     const cycleSunday = getCycleSundayStr(minDate);
-    const cycleSundayFormatted = cycleSunday.replace(/-/g, "");
-    
-    // Add a short random suffix to ensure multiple payouts in the same week are separated
-    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const transactionId = `TRX-${cycleSundayFormatted}-${tutor.kode}-${randomSuffix}-PAID`;
+    const generateUniqueSuffix = () => {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let result = "";
+      for (let i = 0; i < 2; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
+    const nowPayout = new Date();
+    const yyPayout = nowPayout.getFullYear().toString().slice(-2);
+    const mmPayout = String(nowPayout.getMonth() + 1).padStart(2, "0");
+    const ddPayout = String(nowPayout.getDate()).padStart(2, "0");
+    const uniqueSuffix = generateUniqueSuffix();
+    const transactionId = `TRX-${yyPayout}${mmPayout}${ddPayout}${uniqueSuffix}-PAID`;
 
     // Update status seluruh presensi tutor yang 'disetujui' menjadi 'selesai' dan set payoutId
     const result = await prisma.attendance.updateMany({
@@ -419,30 +440,60 @@ export const processPayout = async (req: Request, res: Response) => {
       },
     });
 
+    // Fetch system settings to get custom agency/bimbel name
+    const settings = await prisma.systemSetting.findUnique({
+      where: { id: "system" },
+    });
+    const namaBimbel = settings?.namaBimbel || "BimbelMelly";
+
+    const totalPayout = attendances.reduce((sum, item) => sum + item.feeNet, 0);
+
+    const getCyclePeriodText = (startStr: Date) => {
+      const startDate = new Date(startStr);
+      const startDay = startDate.getDay();
+      const sunday = new Date(startDate);
+      sunday.setDate(startDate.getDate() - startDay);
+
+      const saturday = new Date(sunday);
+      saturday.setDate(sunday.getDate() + 6);
+
+      return `${sunday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} s/d ${saturday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+    };
+    
+    const cyclePeriodStr = getCyclePeriodText(minDate);
+
+    // Map sessions for PDF generator
+    const sessionsMapped = attendances.map((item) => ({
+      tanggal: item.createdAt.toISOString(),
+      siswa: item.student?.fullName || "Siswa",
+      mapel: item.subjectName,
+      durasi: item.durationMin,
+      fee: item.feeNet
+    }));
+
+    // Generate and upload PDF slip to Supabase unconditionally
+    let fileUrl: string | null = null;
+    const fileName = `${transactionId}.pdf`;
+    try {
+      const pdfBuffer = await generatePDFBuffer({
+        payoutId: transactionId,
+        tutorNama: tutor.nama || "Tutor",
+        tutorKode: tutor.kode,
+        periodeStr: cyclePeriodStr,
+        totalNominal: totalPayout,
+        namaBank: tutor.namaBank || "-",
+        noRekening: tutor.noRek || "-",
+        sessions: sessionsMapped,
+        namaBimbel
+      });
+
+      fileUrl = await uploadToSupabase(pdfBuffer, fileName);
+    } catch (pdfErr) {
+      console.error("Failed to generate and upload PDF slip in processPayout:", pdfErr);
+    }
+
     // Send WhatsApp slip notification if tutor has a WA number
     if (tutor.noWa) {
-      // Fetch system settings to get custom agency/bimbel name
-      const settings = await prisma.systemSetting.findUnique({
-        where: { id: "system" },
-      });
-      const namaBimbel = settings?.namaBimbel || "BimbelMelly";
-
-      const totalPayout = attendances.reduce((sum, item) => sum + item.feeNet, 0);
-
-      const getCyclePeriodText = (startStr: Date) => {
-        const startDate = new Date(startStr);
-        const startDay = startDate.getDay();
-        const sunday = new Date(startDate);
-        sunday.setDate(startDate.getDate() - startDay);
-
-        const saturday = new Date(sunday);
-        saturday.setDate(sunday.getDate() + 6);
-
-        return `${sunday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} s/d ${saturday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
-      };
-      
-      const cyclePeriodStr = getCyclePeriodText(minDate);
-
       const formatRupiah = (amount: number) => {
         return new Intl.NumberFormat("id-ID", {
           style: "currency",
@@ -474,44 +525,14 @@ export const processPayout = async (req: Request, res: Response) => {
       message += `===============================\n`;
       message += `Terima kasih atas dedikasi Anda mengajar di ${namaBimbel}! Slip gaji PDF lengkap dapat diunduh di dashboard admin.`;
 
-      // Map sessions for PDF generator
-      const sessionsMapped = attendances.map((item) => ({
-        tanggal: item.createdAt.toISOString(),
-        siswa: item.student?.fullName || "Siswa",
-        mapel: item.subjectName,
-        durasi: item.durationMin,
-        fee: item.feeNet
-      }));
+      if (fileUrl) {
+        message += `\n\nLink Akses PDF Slip Gaji:\n${fileUrl}`;
+      }
 
-      // Trigger async send so it doesn't block the API response
-      (async () => {
-        try {
-          const pdfBuffer = await generatePDFBuffer({
-            payoutId: transactionId,
-            tutorNama: tutor.nama || "Tutor",
-            tutorKode: tutor.kode,
-            periodeStr: cyclePeriodStr,
-            totalNominal: totalPayout,
-            namaBank: tutor.namaBank || "-",
-            noRekening: tutor.noRek || "-",
-            sessions: sessionsMapped,
-            namaBimbel
-          });
-
-          const fileName = `${transactionId}.pdf`;
-          const fileUrl = await uploadToSupabase(pdfBuffer, fileName);
-
-          let finalMessage = message;
-          if (fileUrl) {
-            finalMessage += `\n\nLink Akses PDF Slip Gaji:\n${fileUrl}`;
-          }
-
-          await sendWA(tutor.noWa!, finalMessage, fileUrl || undefined, fileName || undefined);
-        } catch (err) {
-          console.error("Failed to generate and upload PDF slip in processPayout:", err);
-          await sendWA(tutor.noWa!, message);
-        }
-      })();
+      // Send WhatsApp in background (non-blocking)
+      sendWA(tutor.noWa!, message, fileUrl || undefined, fileName).catch((err) => {
+        console.error("Fonnte Send WA Error in background:", err.message);
+      });
     }
 
     res.json({
@@ -525,6 +546,178 @@ export const processPayout = async (req: Request, res: Response) => {
     });
   }
 };
+
+// ==============================
+// BULK PROCESS TUTOR PAYOUTS
+// ==============================
+export const bulkProcessPayouts = async (req: Request, res: Response) => {
+  try {
+    const { tutorIds } = req.body;
+
+    if (!Array.isArray(tutorIds) || tutorIds.length === 0) {
+      return res.status(400).json({
+        message: "Daftar Tutor ID wajib diisi",
+      });
+    }
+
+    let processedCount = 0;
+
+    for (const tutorId of tutorIds) {
+      const tutor = await prisma.tutor.findUnique({
+        where: { id: tutorId },
+      });
+
+      if (!tutor) continue;
+
+      const attendances = await prisma.attendance.findMany({
+        where: {
+          tutorId,
+          status: "disetujui",
+        },
+        include: {
+          student: true,
+        },
+      });
+
+      if (attendances.length === 0) continue;
+
+      const dates = attendances.map(a => new Date(a.createdAt).getTime());
+      const minDate = new Date(Math.min(...dates));
+
+      const generateUniqueSuffix = () => {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let result = "";
+        for (let i = 0; i < 2; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      };
+      const nowPayout = new Date();
+      const yyPayout = nowPayout.getFullYear().toString().slice(-2);
+      const mmPayout = String(nowPayout.getMonth() + 1).padStart(2, "0");
+      const ddPayout = String(nowPayout.getDate()).padStart(2, "0");
+      const uniqueSuffix = generateUniqueSuffix();
+      const transactionId = `TRX-${yyPayout}${mmPayout}${ddPayout}${uniqueSuffix}-PAID`;
+
+      await prisma.attendance.updateMany({
+        where: {
+          tutorId,
+          status: "disetujui",
+        },
+        data: {
+          status: "selesai",
+          payoutId: transactionId,
+        },
+      });
+
+      processedCount++;
+
+      // Fetch system settings and compute variables
+      const settings = await prisma.systemSetting.findUnique({
+        where: { id: "system" },
+      });
+      const namaBimbel = settings?.namaBimbel || "BimbelMelly";
+      const totalPayout = attendances.reduce((sum, item) => sum + item.feeNet, 0);
+
+      const getCyclePeriodText = (startStr: Date) => {
+        const startDate = new Date(startStr);
+        const startDay = startDate.getDay();
+        const sunday = new Date(startDate);
+        sunday.setDate(startDate.getDate() - startDay);
+
+        const saturday = new Date(sunday);
+        saturday.setDate(sunday.getDate() + 6);
+
+        return `${sunday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} s/d ${saturday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+      };
+      
+      const cyclePeriodStr = getCyclePeriodText(minDate);
+
+      const sessionsMapped = attendances.map((item) => ({
+        tanggal: item.createdAt.toISOString(),
+        siswa: item.student?.fullName || "Siswa",
+        mapel: item.subjectName,
+        durasi: item.durationMin,
+        fee: item.feeNet
+      }));
+
+      // Generate and upload PDF slip to Supabase unconditionally (synchronously in loop)
+      let fileUrl: string | null = null;
+      const fileName = `${transactionId}.pdf`;
+      try {
+        const pdfBuffer = await generatePDFBuffer({
+          payoutId: transactionId,
+          tutorNama: tutor.nama || "Tutor",
+          tutorKode: tutor.kode,
+          periodeStr: cyclePeriodStr,
+          totalNominal: totalPayout,
+          namaBank: tutor.namaBank || "-",
+          noRekening: tutor.noRek || "-",
+          sessions: sessionsMapped,
+          namaBimbel
+        });
+
+        fileUrl = await uploadToSupabase(pdfBuffer, fileName);
+      } catch (pdfErr) {
+        console.error("Failed to generate and upload PDF slip in bulkProcessPayouts:", pdfErr);
+      }
+
+      // Send WhatsApp notification if tutor has a WA number
+      if (tutor.noWa) {
+        const formatRupiah = (amount: number) => {
+          return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+          }).format(amount).replace("Rp", "Rp ");
+        };
+
+        let message = `SLIP GAJI TUTOR - ${namaBimbel.toUpperCase()}\n`;
+        message += `===============================\n`;
+        message += `ID Transaksi : ${transactionId}\n`;
+        message += `Nama Tutor  : ${tutor.nama || "Tutor"} (${tutor.kode})\n`;
+        message += `Periode     : ${cyclePeriodStr}\n`;
+        message += `Jumlah Sesi : ${attendances.length} sesi\n`;
+        message += `Total Transfer: ${formatRupiah(totalPayout)}\n\n`;
+
+        message += `Detail Rekening: \n`;
+        message += `Bank: ${tutor.namaBank || "-"}\n`;
+        message += `Rekening: ${tutor.noRek || "-"}\n`;
+        message += `Status: Sudah Ditransfer\n\n`;
+
+        message += `Rincian Sesi Mengajar:\n`;
+        attendances.forEach((item, idx) => {
+          const itemDate = new Date(item.createdAt);
+          const dateFormatted = `${itemDate.getDate()} ${itemDate.toLocaleDateString("id-ID", { month: "short" })}`;
+          message += `${idx + 1}. ${dateFormatted} - ${item.student?.fullName || "Siswa"} - ${item.subjectName} (${item.durationMin}m) - ${formatRupiah(item.feeNet)}\n`;
+        });
+
+        message += `===============================\n`;
+        message += `Terima kasih atas dedikasi Anda mengajar di ${namaBimbel}! Slip gaji PDF lengkap dapat diunduh di dashboard admin.`;
+
+        if (fileUrl) {
+          message += `\n\nLink Akses PDF Slip Gaji:\n${fileUrl}`;
+        }
+
+        // Send WhatsApp in background
+        sendWA(tutor.noWa!, message, fileUrl || undefined, fileName).catch((err) => {
+          console.error("Failed to send WhatsApp in background (bulk):", err);
+        });
+      }
+    }
+
+    res.json({
+      message: "Payout bulk berhasil diproses",
+      count: processedCount,
+    });
+  } catch (error) {
+    console.error("BULK PROCESS PAYOUTS ERROR:", error);
+    res.status(500).json({
+      message: "Gagal memproses bulk payout",
+    });
+  }
+};
+
 
 // ==============================
 // RESEND PAYOUT SLIP WHATSAPP
@@ -658,5 +851,141 @@ export const sendWhatsAppPayout = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("SEND PAYOUT WHATSAPP ERROR:", error);
     res.status(500).json({ message: "Gagal mengirim WhatsApp slip gaji" });
+  }
+};
+
+// ==============================
+// DELETE PAYOUT
+// ==============================
+export const deletePayout = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string; // payoutId or dynamic ID
+    const { tutorId, status } = req.query; // optional helper query params
+
+    const targetStatus = status as string;
+
+    if (targetStatus === "sudah-payout") {
+      const payoutId = id;
+      // Delete PDF slip from Supabase
+      await deleteFileFromSupabase("Slips", `${payoutId}.pdf`);
+
+      const attendances = await prisma.attendance.findMany({
+        where: { payoutId },
+      });
+
+      for (const attendance of attendances) {
+        if (attendance.photoUrl && !attendance.photoUrl.includes("unsplash.com")) {
+          const parts = attendance.photoUrl.split("/");
+          const fileName = parts[parts.length - 1];
+          if (fileName) {
+            await deleteFileFromSupabase("Presensi", fileName);
+          }
+        }
+      }
+
+      await prisma.attendance.deleteMany({
+        where: { payoutId },
+      });
+    } else {
+      const targetTutorId = tutorId as string;
+      if (!targetTutorId) {
+        return res.status(400).json({ message: "Tutor ID wajib diisi untuk payout diproses" });
+      }
+
+      const attendances = await prisma.attendance.findMany({
+        where: { tutorId: targetTutorId, status: "disetujui" },
+      });
+
+      for (const attendance of attendances) {
+        if (attendance.photoUrl && !attendance.photoUrl.includes("unsplash.com")) {
+          const parts = attendance.photoUrl.split("/");
+          const fileName = parts[parts.length - 1];
+          if (fileName) {
+            await deleteFileFromSupabase("Presensi", fileName);
+          }
+        }
+      }
+
+      await prisma.attendance.deleteMany({
+        where: { tutorId: targetTutorId, status: "disetujui" },
+      });
+    }
+
+    res.json({ message: "Data payout berhasil dihapus" });
+  } catch (error: any) {
+    console.error("DELETE PAYOUT ERROR:", error);
+    res.status(500).json({ message: "Gagal menghapus data payout" });
+  }
+};
+
+// ==============================
+// BULK DELETE PAYOUTS
+// ==============================
+export const bulkDeletePayouts = async (req: Request, res: Response) => {
+  try {
+    const { targets } = req.body; // Array<{ id: string, tutorId?: string, status: string }>
+
+    if (!Array.isArray(targets) || targets.length === 0) {
+      return res.status(400).json({ message: "Daftar target payout tidak valid" });
+    }
+
+    for (const target of targets) {
+      if (target.status === "sudah-payout") {
+        const payoutId = target.id;
+        // Delete PDF slip from Supabase
+        await deleteFileFromSupabase("Slips", `${payoutId}.pdf`);
+
+        // Find attendances matching this payoutId
+        const attendances = await prisma.attendance.findMany({
+          where: { payoutId },
+        });
+
+        // Delete attendance photos from Supabase
+        for (const attendance of attendances) {
+          if (attendance.photoUrl && !attendance.photoUrl.includes("unsplash.com")) {
+            const parts = attendance.photoUrl.split("/");
+            const fileName = parts[parts.length - 1];
+            if (fileName) {
+              await deleteFileFromSupabase("Presensi", fileName);
+            }
+          }
+        }
+
+        // Delete attendances from DB
+        await prisma.attendance.deleteMany({
+          where: { payoutId },
+        });
+      } else {
+        // Unpaid payout - identified by tutorId
+        const tutorId = target.tutorId;
+        if (!tutorId) continue;
+
+        // Find all attendances where tutorId = tutorId and status = "disetujui"
+        const attendances = await prisma.attendance.findMany({
+          where: { tutorId, status: "disetujui" },
+        });
+
+        // Delete photo for each
+        for (const attendance of attendances) {
+          if (attendance.photoUrl && !attendance.photoUrl.includes("unsplash.com")) {
+            const parts = attendance.photoUrl.split("/");
+            const fileName = parts[parts.length - 1];
+            if (fileName) {
+              await deleteFileFromSupabase("Presensi", fileName);
+            }
+          }
+        }
+
+        // Delete attendances
+        await prisma.attendance.deleteMany({
+          where: { tutorId, status: "disetujui" },
+        });
+      }
+    }
+
+    res.json({ message: "Data payout berhasil dihapus" });
+  } catch (error: any) {
+    console.error("BULK DELETE PAYOUTS ERROR:", error);
+    res.status(500).json({ message: "Gagal menghapus data payout" });
   }
 };

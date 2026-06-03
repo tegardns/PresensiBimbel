@@ -19,6 +19,7 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTutor, setSelectedTutor] = useState<Tutor | null>(null);
   const confirm = useConfirm();
+  const [isLoading, setIsLoading] = useState(true);
 
   // PREVIEW )
   const [previewTutor, setPreviewTutor] = useState<Tutor | null>(null);
@@ -34,6 +35,7 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
   // =========================
   const fetchTutors = async () => {
     try {
+      setIsLoading(true);
       const res = await api.get("/tutors");
       const data = res.data;
 
@@ -56,6 +58,8 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
       setTutors(mapped);
     } catch (err) {
       console.error("Gagal fetch tutor", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -223,7 +227,20 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {filteredTutors.map((tutor) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-12 text-gray-500 font-medium">
+                    sedang memuat data
+                  </td>
+                </tr>
+              ) : filteredTutors.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-12 text-gray-500">
+                    Tidak ada data tutor yang ditemukan
+                  </td>
+                </tr>
+              ) : (
+                filteredTutors.map((tutor) => (
                 <tr
                   key={tutor.kode || "-"}
                   className="hover:bg-gray-50 transition-colors"
@@ -302,16 +319,12 @@ export function DataTutor({ searchQuery, setSearchQuery }: DataTutorProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
 
-        {filteredTutors.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            Tidak ada data tutor yang ditemukan
-          </div>
-        )}
+
       </div>
 
       <ModalTutor

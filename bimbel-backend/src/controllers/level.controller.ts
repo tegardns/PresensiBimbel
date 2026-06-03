@@ -50,15 +50,14 @@ export const updateLevel = async (
 ) => {
   try {
     const { id } = req.params;
-    const { hargaJual, durasiMenit, potonganAdmin } = req.body;
+    const { hargaJual, durasiMenit } = req.body;
 
     if (
       hargaJual === undefined ||
-      durasiMenit === undefined ||
-      potonganAdmin === undefined
+      durasiMenit === undefined
     ) {
       return res.status(400).json({
-        message: "Harga jual, durasi menit, dan potongan admin wajib diisi",
+        message: "Harga jual dan durasi menit wajib diisi",
       });
     }
 
@@ -69,7 +68,6 @@ export const updateLevel = async (
       data: {
         hargaJual: Number(hargaJual),
         durasiMenit: Number(durasiMenit),
-        potonganAdmin: Number(potonganAdmin),
       },
     });
 

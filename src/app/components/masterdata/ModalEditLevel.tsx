@@ -34,7 +34,6 @@ export function ModalEditLevel({
       const payload = {
         hargaJual: Number(formData.get("hargaJual")),
         durasiMenit: level.name === "Calistung" ? 75 : Number(formData.get("durasiMenit")),
-        potonganAdmin: Number(formData.get("potonganAdmin")),
       };
 
       await api.put(`/levels/${level.id}`, payload);
@@ -150,14 +149,12 @@ export function ModalEditLevel({
             <input
               type="number"
               name="potonganAdmin"
-              defaultValue={level.potonganAdmin}
-              min="0"
-              max="100"
-              step="1"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={level.potonganAdmin}
+              disabled
+              className="w-full px-4 py-2.5 border border-gray-200 bg-gray-100 cursor-not-allowed text-gray-500 rounded-lg"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Persentase potongan untuk admin
+            <p className="text-xs text-orange-600 mt-1">
+              Diatur secara global di Pengaturan &gt; Konfigurasi Sistem
             </p>
           </div>
 

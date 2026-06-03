@@ -20,13 +20,17 @@ interface RekapData {
 
 export function RekapJamMengajar() {
   const [periode, setPeriode] = useState<'harian' | 'mingguan' | 'bulanan'>('bulanan');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [rekap, setRekap] = useState<RekapData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchRekap = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/attendances/rekap');
+      const response = await api.get(`/attendances/rekap?periode=${periode}&month=${selectedMonth}`);
       setRekap(response.data);
     } catch (error) {
       console.error('Gagal mengambil data rekap jam mengajar:', error);
@@ -37,7 +41,7 @@ export function RekapJamMengajar() {
 
   useEffect(() => {
     fetchRekap();
-  }, []);
+  }, [periode, selectedMonth]);
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -90,7 +94,8 @@ export function RekapJamMengajar() {
 
           <input
             type="month"
-            defaultValue="2026-06"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
             className="px-4 py-2.5 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-gray-700 font-mono"
           />
         </div>
@@ -106,7 +111,7 @@ export function RekapJamMengajar() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Tutor Aktif</p>
-              <p className="text-2xl font-extrabold text-gray-800">{data.totalTutors} tutor</p>
+              <p className="text-2xl font-bold text-gray-800">{data.totalTutors} tutor</p>
             </div>
           </div>
         </div>
@@ -120,7 +125,7 @@ export function RekapJamMengajar() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Jam Mengajar</p>
-              <p className="text-2xl font-extrabold text-gray-800">{data.totalJam} jam</p>
+              <p className="text-2xl font-bold text-gray-800">{data.totalJam} jam</p>
             </div>
           </div>
         </div>
@@ -134,7 +139,7 @@ export function RekapJamMengajar() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Sesi Diajar</p>
-              <p className="text-2xl font-extrabold text-gray-800">{data.totalSesi} sesi</p>
+              <p className="text-2xl font-bold text-gray-800">{data.totalSesi} sesi</p>
             </div>
           </div>
         </div>
@@ -157,21 +162,19 @@ export function RekapJamMengajar() {
               {data.rekapList.map((tutor) => (
                 <tr
                   key={tutor.tutorId}
-                  className={`hover:bg-gray-50/50 transition-colors ${
-                    tutor.rank === 1 ? 'bg-yellow-50/30' : ''
-                  }`}
+                  className={`hover:bg-gray-50/50 transition-colors ${tutor.rank === 1 ? 'bg-yellow-50/30' : ''
+                    }`}
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       {tutor.rank <= 3 ? (
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                            tutor.rank === 1
-                              ? 'bg-yellow-500 shadow-xs'
-                              : tutor.rank === 2
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${tutor.rank === 1
+                            ? 'bg-yellow-500 shadow-xs'
+                            : tutor.rank === 2
                               ? 'bg-gray-400'
                               : 'bg-orange-400'
-                          }`}
+                            }`}
                         >
                           {tutor.rank}
                         </div>
