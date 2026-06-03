@@ -483,7 +483,12 @@ export function Dashboard() {
     });
 
     const tutorLeaderboard: TopTutorItem[] = Array.from(tutorStatsMap.values())
-      .sort((a, b) => b.sessions - a.sessions)
+      .sort((a, b) => {
+        if (b.sessions !== a.sessions) {
+          return b.sessions - a.sessions;
+        }
+        return b.minutes - a.minutes;
+      })
       .map((item, index) => ({
         rank: index + 1,
         name: item.name,
