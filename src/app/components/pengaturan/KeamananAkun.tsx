@@ -179,7 +179,7 @@ export function KeamananAkun() {
         setOldPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        
+
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('role');
@@ -248,11 +248,11 @@ export function KeamananAkun() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">ID Akun</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">ID Tutor</th>
+                {/* <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">ID Tutor</th> */}
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Nama Tutor</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Email</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Last Login</th>
+                {/* <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Last Login</th> */}
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Aksi</th>
               </tr>
             </thead>
@@ -260,7 +260,7 @@ export function KeamananAkun() {
               {filteredAccounts.map((account) => (
                 <tr key={account.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-500 font-mono">{account.id}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500 font-mono">{account.tutorKode}</td>
+                  {/* <td className="px-4 py-3 text-sm text-gray-500 font-mono">{account.tutorKode}</td> */}
                   <td className="px-4 py-3 text-sm">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-xs font-medium uppercase">
@@ -271,17 +271,16 @@ export function KeamananAkun() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{account.email}</td>
                   <td className="px-4 py-3 text-sm">
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                      account.status === 'aktif'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs ${account.status === 'aktif'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-700'
+                      }`}>
                       {account.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 font-mono">
+                  {/* <td className="px-4 py-3 text-sm text-gray-500 font-mono">
                     {formatLastLogin(account.lastLogin)}
-                  </td>
+                  </td> */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
@@ -375,9 +374,8 @@ export function KeamananAkun() {
               <div className="grid grid-cols-3 gap-2 border-b border-gray-100 pb-3">
                 <span className="text-gray-500 font-medium">Status</span>
                 <span className="col-span-2">
-                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                    viewingAccount.status === 'aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${viewingAccount.status === 'aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
                     {viewingAccount.status === 'aktif' ? 'Aktif' : 'Nonaktif'}
                   </span>
                 </span>

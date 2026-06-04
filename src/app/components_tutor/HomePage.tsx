@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, LogOut, Settings, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, Settings, User, Bell } from 'lucide-react';
+import api from '../../services/api';
 
 interface Session {
   id: string;
@@ -33,6 +34,43 @@ export default function HomePage({ tutorName, tutorPhoto, onNavigateToSettings, 
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  
+  const [notifStatus, setNotifStatus] = useState<string>(() => localStorage.getItem("notif_simulated_status") || "inactive");
+  const [registeringNotif, setRegisteringNotif] = useState(false);
+
+  const handleEnableNotification = async () => {
+    setRegisteringNotif(true);
+    try {
+      const profileRes = await api.get("/tutor/profile");
+      const tutor = profileRes.data;
+
+      if (!tutor || !tutor.id) {
+        throw new Error("Profil tutor tidak ditemukan");
+      }
+
+      const simulatedToken = `sim_token_${tutor.id}_${Math.random().toString(36).substring(2, 10)}`;
+      
+      await api.post("/notifications/register-token", {
+        token: simulatedToken,
+        platform: "web",
+        tutorId: tutor.id
+      });
+
+      localStorage.setItem("notif_simulated_status", "active");
+      setNotifStatus("active");
+      
+      if ("Notification" in window) {
+        await Notification.requestPermission();
+      }
+
+      alert("Simulasi Berhasil!\n\nPerangkat browser Anda telah didaftarkan untuk menerima Push Notifikasi dari Admin.");
+    } catch (error) {
+      console.error("Gagal simulasikan notifikasi:", error);
+      alert("Gagal mengaktifkan simulasi notifikasi. Silakan coba lagi.");
+    } finally {
+      setRegisteringNotif(false);
+    }
+  };
 
   // Mock data - Rate: Rp 32.000 per jam
   const sessions: Session[] = [
@@ -174,6 +212,54 @@ export default function HomePage({ tutorName, tutorPhoto, onNavigateToSettings, 
           </div>
         </div>
       </div>
+
+      {/* PWA Notification Banner */}
+      {notifStatus !== "active" && (
+        <div className="mx-5 mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 flex gap-3 shadow-sm animate-pulse">
+          <div className="size-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 flex-shrink-0 animate-bounce">
+            <Bell className="size-5" />
+          </div>
+          <div className="flex-1 space-y-1">
+            <h4 className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
+              Aktifkan Notifikasi HP
+              <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">Baru</span>
+            </h4>
+            <p className="text-[10px] text-gray-500 leading-normal">
+              Terima pemberitahuan instan mengenai info validasi presensi dan slip gaji Anda langsung di tray ponsel.
+            </p>
+            <button
+              onClick={handleEnableNotification}
+              disabled={registeringNotif}
+              className="mt-2 text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 text-left"
+            >
+              {registeringNotif ? "Menghubungkan..." : "Aktifkan Sekarang →"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {notifStatus === "active" && (
+        <div className="mx-5 mt-4 bg-green-50 border border-green-100 rounded-2xl p-3 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="size-8 bg-green-100 rounded-lg flex items-center justify-center text-green-600 text-xs font-bold">
+              ✓
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-950 text-xs">Notifikasi Sistem HP Aktif</h4>
+              <p className="text-[9px] text-gray-500">Browser/Perangkat Anda siap menerima push notification.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              localStorage.removeItem("notif_simulated_status");
+              setNotifStatus("inactive");
+            }}
+            className="text-[9px] text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+          >
+            Nonaktifkan
+          </button>
+        </div>
+      )}
 
       {/* Period Selector */}
       <div className="bg-white border-b border-gray-100 px-5 py-3">

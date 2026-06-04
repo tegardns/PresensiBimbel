@@ -7,6 +7,7 @@ import { MasterData } from "./components/MasterData";
 import { Presensi } from "./components/Presensi";
 import { Keuangan } from "./components/Keuangan";
 import { Pengaturan } from "./components/Pengaturan";
+import { Notifikasi } from "./components/Notifikasi";
 import { Login } from "./components/Login";
 import TutorDashboard from "./TutorDashboard";
 import { UserAccount } from "./data/authData";
@@ -212,6 +213,7 @@ function AppContent() {
         {activeMenu === "master-data" && <MasterData />}
         {activeMenu === "presensi" && <Presensi />}
         {activeMenu === "keuangan" && <Keuangan />}
+        {activeMenu === "notifikasi" && <Notifikasi />}
         {activeMenu === "pengaturan" && <Pengaturan />}
       </div>
     </div>

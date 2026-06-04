@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Wallet,
   Settings,
+  Bell,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -94,6 +95,7 @@ export function Sidebar({
     { id: "master-data", label: "Master Data", icon: Database },
     { id: "presensi", label: "Presensi", icon: ClipboardCheck },
     { id: "keuangan", label: "Keuangan", icon: Wallet },
+    { id: "notifikasi", label: "Push Notifikasi", icon: Bell },
     { id: "pengaturan", label: "Pengaturan", icon: Settings },
   ];
 

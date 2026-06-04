@@ -32,10 +32,11 @@ model Tutor {
   status      Boolean      @default(true)
   kode        String       @unique
   fotoUrl     String?
-  createdAt   DateTime     @default(now())
-  attendances Attendance[]
-  user        User?        @relation(fields: [userId], references: [id])
-  students    Student[]    @relation("TutorStudents")
+  createdAt    DateTime           @default(now())
+  attendances  Attendance[]
+  user         User?              @relation(fields: [userId], references: [id])
+  students     Student[]          @relation("TutorStudents")
+  deviceTokens TutorDeviceToken[]
 }
 
 model Level {
@@ -123,4 +124,24 @@ enum AttendanceStatus {
   disetujui
   ditolak
   selesai
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  body      String
+  target    String   // "all" or "tutor_id"
+  tutorId   String?  // Optional specific tutor target
+  status    String   @default("terkirim") // "terkirim", "gagal"
+  createdAt DateTime @default(now())
+}
+
+model TutorDeviceToken {
+  id        String   @id @default(uuid())
+  tutorId   String
+  token     String   @unique
+  platform  String   // "web", "android", "ios"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tutor     Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
 }

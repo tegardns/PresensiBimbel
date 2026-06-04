@@ -15,6 +15,8 @@ import subjectRoutes from "./routes/subject.routes";
 import levelRoutes from "./routes/level.routes";
 import attendanceRoutes from "./routes/attendance.routes";
 import financeRoutes from "./routes/finance.routes";
+import notificationRoutes from "./routes/notification.routes";
+
 
 const app = express();
 
@@ -53,5 +55,7 @@ app.use("/api/subjects", subjectRoutes);
 app.use("/api/levels", levelRoutes);
 app.use("/api/attendances", attendanceRoutes);
 app.use("/api/finance", financeRoutes);
+app.use("/api/notifications", notificationRoutes);
+
 
 export default app;
