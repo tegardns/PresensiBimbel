@@ -14,6 +14,26 @@ import { UserAccount } from "./data/authData";
 import { ConfirmProvider } from "./context/ConfirmContext";
 import { Toaster, toast } from "sonner";
 
+const PAGE_URLS: Record<string, string> = {
+  login: "/login",
+  dashboard: "/",
+  "master-data": "/master-data",
+  presensi: "/presensi",
+  keuangan: "/keuangan",
+  notifikasi: "/notifikasi",
+  pengaturan: "/pengaturan",
+};
+
+const URL_PAGES: Record<string, string> = {
+  "/login": "login",
+  "/": "dashboard",
+  "/master-data": "master-data",
+  "/presensi": "presensi",
+  "/keuangan": "keuangan",
+  "/notifikasi": "notifikasi",
+  "/pengaturan": "pengaturan",
+};
+
 function AppContent() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -24,6 +44,16 @@ function AppContent() {
   const logoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const AUTO_LOGOUT_TIME = 60 * 60 * 1000; // 1 hour
+
+  const navigate = (newPage: string, replace = false) => {
+    const url = PAGE_URLS[newPage] || "/";
+    if (replace) {
+      window.history.replaceState({ page: newPage }, "", url);
+    } else {
+      window.history.pushState({ page: newPage }, "", url);
+    }
+    setActiveMenu(newPage);
+  };
 
   // =========================
   // LOGOUT
@@ -40,7 +70,7 @@ function AppContent() {
 
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setActiveMenu("dashboard");
+    navigate("login", true);
   };
 
   // =========================
@@ -50,6 +80,8 @@ function AppContent() {
     const token = localStorage.getItem("token");
     const savedUser = localStorage.getItem("user");
     const lastActivity = localStorage.getItem("lastActivity");
+    const path = window.location.pathname;
+    const initialPage = URL_PAGES[path] || "dashboard";
 
     if (token && savedUser) {
       const now = Date.now();
@@ -60,14 +92,41 @@ function AppContent() {
         try {
           setCurrentUser(JSON.parse(savedUser));
           setIsAuthenticated(true);
+          if (initialPage === "login") {
+            navigate("dashboard", true);
+          } else {
+            navigate(initialPage, true);
+          }
         } catch (e) {
           console.error("Failed to parse saved user, clearing storage.");
           handleLogout();
         }
       }
+    } else {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      navigate("login", true);
     }
 
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state;
+      if (state && state.page) {
+        setActiveMenu(state.page);
+      } else {
+        const path = window.location.pathname;
+        const page = URL_PAGES[path] || "dashboard";
+        setActiveMenu(page);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, []);
 
   // =========================
@@ -165,6 +224,7 @@ function AppContent() {
 
       setCurrentUser(userData);
       setIsAuthenticated(true);
+      navigate("dashboard", true);
     } catch (error) {
       setLoginError("Tidak bisa terhubung ke server");
     }
@@ -204,7 +264,7 @@ function AppContent() {
     <div className="h-screen flex bg-gray-50">
       <Sidebar
         activeMenu={activeMenu}
-        onMenuClick={setActiveMenu}
+        onMenuClick={(menu) => navigate(menu)}
         onLogout={handleLogout}
         currentUser={currentUser}
       />
