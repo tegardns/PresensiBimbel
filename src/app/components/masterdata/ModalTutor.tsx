@@ -45,7 +45,8 @@ export function ModalTutor({
   // FETCH SISWA
   // =========================
   useEffect(() => {
-    fetch("http://localhost:4000/api/students")
+    const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+    fetch(`${apiBaseUrl}/students`)
       .then((res) => res.json())
       .then((data) => setStudents(data))
       .catch(() => console.log("Gagal ambil data siswa"));

@@ -126,7 +126,8 @@ function AppContent() {
     try {
       setLoginError("");
 
-      const res = await fetch("http://localhost:4000/api/auth/login", {
+      const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+      const res = await fetch(`${apiBaseUrl}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

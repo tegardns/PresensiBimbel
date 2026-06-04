@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "Level" ALTER COLUMN "code" DROP NOT NULL;
